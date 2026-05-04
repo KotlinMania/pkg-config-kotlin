@@ -1,0 +1,22 @@
+{
+  "type": "port",
+  "name": "pkg-config-kotlin",
+  "source": {
+    "path": "tmp/pkg-config/src",
+    "lang": "rust"
+  },
+  "target": {
+    "path": "src/commonMain/kotlin/io/github/kotlinmania/pkgconfig",
+    "lang": "kotlin"
+  },
+  "checks": {
+    "deep": true,
+    "missing": true,
+    "todos": true,
+    "lint": true
+  },
+  "reexport_modules": [
+    "mod.rs",
+    "lib.rs"
+  ]
+}
