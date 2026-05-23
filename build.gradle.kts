@@ -138,7 +138,58 @@ kotlin {
                 implementation(kotlin("test"))
             }
         }
+        val posixMain by creating {
+            dependsOn(commonMain)
+        }
+        val posixTest by creating {
+            dependsOn(commonTest)
+        }
 
+        listOf(
+            "macosArm64Main",
+            "iosArm64Main",
+            "iosSimulatorArm64Main",
+            "iosX64Main",
+            "tvosArm64Main",
+            "tvosSimulatorArm64Main",
+            "watchosArm32Main",
+            "watchosArm64Main",
+            "watchosDeviceArm64Main",
+            "watchosSimulatorArm64Main",
+            "linuxX64Main",
+            "linuxArm64Main",
+            "androidNativeArm32Main",
+            "androidNativeArm64Main",
+            "androidNativeX86Main",
+            "androidNativeX64Main",
+        ).forEach { sourceSetName ->
+            named(sourceSetName) {
+                dependsOn(posixMain)
+            }
+        }
+
+        listOf(
+            "macosArm64Test",
+            "iosArm64Test",
+            "iosSimulatorArm64Test",
+            "iosX64Test",
+            "tvosArm64Test",
+            "tvosSimulatorArm64Test",
+            "watchosArm32Test",
+            "watchosArm64Test",
+            "watchosDeviceArm64Test",
+            "watchosSimulatorArm64Test",
+            "linuxX64Test",
+            "linuxArm64Test",
+            "androidNativeArm32Test",
+            "androidNativeArm64Test",
+            "androidNativeX86Test",
+            "androidNativeX64Test",
+        ).forEach { sourceSetName ->
+            named(sourceSetName) {
+                dependsOn(posixTest)
+            }
+        }
     }
     jvmToolchain(21)
 }
