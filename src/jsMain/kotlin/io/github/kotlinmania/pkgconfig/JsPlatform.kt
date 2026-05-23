@@ -34,14 +34,14 @@ internal actual fun spawnProcess(
     }
     val jsArgs = args.toTypedArray()
     val result = jsSpawnSync(exe, jsArgs, envObj)
-        ?: throw IoError(IoErrorKind.NotFound, "child_process unavailable in this JS host")
+        ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "child_process unavailable in this JS host"))
     val err: dynamic = result.error
     if (err != null && err != undefined()) {
         val errCode: dynamic = err.code
         val kind = if (errCode == "ENOENT") IoErrorKind.NotFound else IoErrorKind.Other
         val msgRaw: dynamic = err.message
         val message: String = if (msgRaw == null || msgRaw == undefined()) "spawn failed" else msgRaw.toString()
-        throw IoError(kind, message)
+        throw IoSpawnException(IoError(kind, message))
     }
     val statusDyn: dynamic = result.status
     val code: Int? = if (statusDyn == null || statusDyn == undefined()) null else (statusDyn as Number).toInt()

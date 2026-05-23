@@ -45,7 +45,7 @@ internal actual fun spawnProcess(
             append(" 2>&1")
         }
         val handle = _popen(command, "rb")
-            ?: throw IoError(IoErrorKind.NotFound, "_popen failed for `$exe`")
+            ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "_popen failed for `$exe`"))
         val out = ArrayList<Byte>()
         while (true) {
             val c = fgetc(handle)
