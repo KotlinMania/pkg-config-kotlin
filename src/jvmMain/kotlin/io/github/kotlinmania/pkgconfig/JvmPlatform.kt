@@ -53,7 +53,7 @@ internal actual fun spawnProcess(
         } else {
             IoErrorKind.Other
         }
-        throw IoError(kind, e.message ?: "process failed to spawn")
+        throw IoSpawnException(IoError(kind, e.message ?: "process failed to spawn"))
     }
 
     process.outputStream.close()

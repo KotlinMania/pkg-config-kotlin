@@ -16,9 +16,11 @@ internal actual fun spawnProcess(
     args: List<String>,
     env: Map<String, String>,
 ): ProcessOutput {
-    throw IoError(
-        IoErrorKind.NotFound,
-        "process invocation is not available on wasm-wasi; pkg-config cannot be probed here",
+    throw IoSpawnException(
+        IoError(
+            IoErrorKind.NotFound,
+            "process invocation is not available on wasm-wasi; pkg-config cannot be probed here",
+        ),
     )
 }
 

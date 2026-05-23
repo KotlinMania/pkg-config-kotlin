@@ -63,7 +63,7 @@ internal actual fun spawnProcess(
             append(" 2>&1")
         }
         val handle = popen(command, "r")
-            ?: throw IoError(IoErrorKind.NotFound, "popen failed for `$exe`")
+            ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "popen failed for `$exe`"))
         val out = ArrayList<Byte>()
         // Read byte-by-byte via fgetc so the posixMain metadata stays free of
         // size_t-typed signatures (whose bit width differs between 32-bit
