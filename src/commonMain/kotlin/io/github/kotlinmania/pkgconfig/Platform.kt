@@ -46,14 +46,24 @@ public data class ProcessStatus(val code: Int?) {
 /**
  * Mirrors `std::io::Error`: a host-side error from a system call such as
  * spawning a process. `kind` reproduces the small set of `io::ErrorKind`
- * variants the upstream crate actually distinguishes.
+ * variants the upstream crate actually distinguishes. Not a [Throwable]
+ * subtype: the Swift Export bridge expands `Throwable.suppressed:
+ * Array<Throwable>` into `Array<Any?>` casts that fail under
+ * `allWarningsAsErrors`.
  */
-public class IoError(public val kind: IoErrorKind, message: String) : RuntimeException(message)
+public data class IoError(val kind: IoErrorKind, val message: String)
 
 public enum class IoErrorKind {
     NotFound,
     Other,
 }
+
+/**
+ * Internal `Throwable`-shaped wrapper for [IoError] used so the per-target
+ * [spawnProcess] actuals can keep throwing through a `try`/`catch`. Kept
+ * `internal` so it never reaches the Swift Export bridge.
+ */
+internal class IoSpawnException(val ioError: IoError) : Throwable(ioError.message)
 
 /**
  * Operating system family corresponding to Rust's `cfg!(target_os = "...")`
@@ -93,8 +103,9 @@ internal expect fun pathIsFile(path: String): Boolean
 
 /**
  * Equivalent of `std::process::Command::new(exe).args(args).envs(env).output()`.
- * Returns the captured output on success, throws [IoError] when the spawn
- * itself fails.
+ * Returns the captured output on success, throws [IoSpawnException] when the
+ * spawn itself fails. The caller is expected to translate that exception into
+ * a public [Error.Command] with the wrapped [IoError].
  */
 internal expect fun spawnProcess(
     exe: String,

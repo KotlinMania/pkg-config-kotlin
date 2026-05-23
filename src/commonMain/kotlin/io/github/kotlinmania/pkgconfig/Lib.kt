@@ -82,12 +82,14 @@ package io.github.kotlinmania.pkgconfig
 /**
  * Mirrors Rust's [`std::ops::Bound`] used to parametrise the bounded version
  * ranges accepted by [Config.rangeVersion]. The variant order follows
- * upstream.
+ * upstream. Non-generic because every consumer specialises to `String`, and
+ * a generic sealed class triggers the Kotlin → Swift Export bridge to emit
+ * `VersionBound.Included<Any?>` casts that fail under `allWarningsAsErrors`.
  */
-public sealed class Bound<out T> {
-    public data class Included<T>(val value: T) : Bound<T>()
-    public data class Excluded<T>(val value: T) : Bound<T>()
-    public object Unbounded : Bound<Nothing>()
+public sealed class VersionBound {
+    public data class Included(val value: String) : VersionBound()
+    public data class Excluded(val value: String) : VersionBound()
+    public object Unbounded : VersionBound()
 }
 
 /**
@@ -147,8 +149,8 @@ internal class WrappedCommand internal constructor(programArg: String) {
  */
 public class Config {
     internal var statik: Boolean? = null
-    internal var minVersion: Bound<String> = Bound.Unbounded
-    internal var maxVersion: Bound<String> = Bound.Unbounded
+    internal var minVersion: VersionBound = VersionBound.Unbounded
+    internal var maxVersion: VersionBound = VersionBound.Unbounded
     internal val extraArgs: MutableList<String> = mutableListOf()
     internal var cargoMetadata: Boolean = true
     internal var envMetadata: Boolean = true
@@ -165,10 +167,12 @@ public class Config {
         /**
          * Deprecated in favor of the top level [getVariable] function.
          */
-        @Deprecated("use the top level getVariable function instead")
-        public fun getVariable(packageName: String, variable: String): Result<String> =
+        @Deprecated(
+            "use the top level getVariable function instead",
+            level = DeprecationLevel.HIDDEN,
+        )
+        public fun getVariable(packageName: String, variable: String): VariableOutcome =
             io.github.kotlinmania.pkgconfig.getVariable(packageName, variable)
-                .map { it }
     }
 
     /**
@@ -184,29 +188,29 @@ public class Config {
 
     /** Indicate that the library must be at least version `vers`. */
     public fun atleastVersion(vers: String): Config {
-        this.minVersion = Bound.Included(vers)
-        this.maxVersion = Bound.Unbounded
+        this.minVersion = VersionBound.Included(vers)
+        this.maxVersion = VersionBound.Unbounded
         return this
     }
 
     /** Indicate that the library must be equal to version `vers`. */
     public fun exactlyVersion(vers: String): Config {
-        this.minVersion = Bound.Included(vers)
-        this.maxVersion = Bound.Included(vers)
+        this.minVersion = VersionBound.Included(vers)
+        this.maxVersion = VersionBound.Included(vers)
         return this
     }
 
     /** Indicate that the library's version must be in `range`. */
-    public fun rangeVersion(start: Bound<String>, end: Bound<String>): Config {
+    public fun rangeVersion(start: VersionBound, end: VersionBound): Config {
         this.minVersion = when (start) {
-            is Bound.Included -> Bound.Included(start.value)
-            is Bound.Excluded -> Bound.Excluded(start.value)
-            Bound.Unbounded -> Bound.Unbounded
+            is VersionBound.Included -> VersionBound.Included(start.value)
+            is VersionBound.Excluded -> VersionBound.Excluded(start.value)
+            VersionBound.Unbounded -> VersionBound.Unbounded
         }
         this.maxVersion = when (end) {
-            is Bound.Included -> Bound.Included(end.value)
-            is Bound.Excluded -> Bound.Excluded(end.value)
-            Bound.Unbounded -> Bound.Unbounded
+            is VersionBound.Included -> VersionBound.Included(end.value)
+            is VersionBound.Excluded -> VersionBound.Excluded(end.value)
+            VersionBound.Unbounded -> VersionBound.Unbounded
         }
         return this
     }
@@ -263,9 +267,12 @@ public class Config {
     }
 
     /** Deprecated in favor of the [probe] function. */
-    @Deprecated("use probe instead", ReplaceWith("probe(name)"))
-    public fun find(name: String): Result<Library> =
-        probe(name).mapCatching { it }
+    @Deprecated(
+        "use probe instead",
+        ReplaceWith("probe(name)"),
+        level = DeprecationLevel.HIDDEN,
+    )
+    public fun find(name: String): ProbeOutcome = probe(name)
 
     /**
      * Run `pkg-config` to find the library `name`.
@@ -273,36 +280,42 @@ public class Config {
      * This will use all configuration previously set to specify how
      * `pkg-config` is run.
      */
-    public fun probe(name: String): Result<Library> {
+    public fun probe(name: String): ProbeOutcome {
         val abortVarName = "${envify(name)}_NO_PKG_CONFIG"
         if (envVarOs(abortVarName) != null) {
-            return Result.failure(Error.EnvNoPkgConfig(abortVarName))
+            return ProbeOutcome.Failure(Error.EnvNoPkgConfig(abortVarName))
         } else if (!targetSupported()) {
-            return Result.failure(Error.CrossCompilation)
+            return ProbeOutcome.Failure(Error.CrossCompilation)
         }
 
         val library = Library.new()
 
-        val output = runProbe(name, listOf("--libs", "--cflags"))
-            .mapCatching { it }
-            .recoverCatching { e ->
-                if (e is Error.Failure) {
-                    throw Error.ProbeFailure(
+        val firstOutcome = runProbe(name, listOf("--libs", "--cflags"))
+        val output = when (firstOutcome) {
+            is RunOutcome.Ok -> firstOutcome.stdout
+            is RunOutcome.Err -> {
+                val mapped = if (firstOutcome.error is Error.Failure) {
+                    Error.ProbeFailure(
                         name = name,
-                        command = e.command,
-                        output = e.output,
+                        command = firstOutcome.error.command,
+                        output = firstOutcome.error.output,
                     )
+                } else {
+                    firstOutcome.error
                 }
-                throw e
+                return ProbeOutcome.Failure(mapped)
             }
-            .getOrElse { e -> return Result.failure(e) }
+        }
         library.parseLibsCflags(name, output, this)
 
-        val modversion = runProbe(name, listOf("--modversion"))
-            .getOrElse { e -> return Result.failure(e) }
+        val modOutcome = runProbe(name, listOf("--modversion"))
+        val modversion = when (modOutcome) {
+            is RunOutcome.Ok -> modOutcome.stdout
+            is RunOutcome.Err -> return ProbeOutcome.Failure(modOutcome.error)
+        }
         library.parseModversion(modversion.decodeToString())
 
-        return Result.success(library)
+        return ProbeOutcome.Success(library)
     }
 
     /**
@@ -363,7 +376,7 @@ public class Config {
     internal fun isStatic(name: String): Boolean =
         statik ?: inferStatic(name)
 
-    internal fun runProbe(name: String, args: List<String>): Result<ByteArray> {
+    internal fun runProbe(name: String, args: List<String>): RunOutcome {
         val pkgConfigExe = targetedEnvVar("PKG_CONFIG")
         val fallbackExe = if (pkgConfigExe == null) "pkgconf" else null
         val exe = pkgConfigExe ?: "pkg-config"
@@ -372,28 +385,22 @@ public class Config {
 
         val outcome: ProcessOutput = try {
             cmd.output()
-        } catch (e: IoError) {
+        } catch (e: IoSpawnException) {
             if (fallbackExe != null) {
                 try {
                     command(fallbackExe, name, args).output()
-                } catch (_: IoError) {
-                    return Result.failure(
-                        Error.Command(command = cmd.toString(), ioCause = e),
-                    )
+                } catch (_: IoSpawnException) {
+                    return RunOutcome.Err(Error.Command(command = cmd.toString(), ioCause = e.ioError))
                 }
             } else {
-                return Result.failure(
-                    Error.Command(command = cmd.toString(), ioCause = e),
-                )
+                return RunOutcome.Err(Error.Command(command = cmd.toString(), ioCause = e.ioError))
             }
         }
 
         return if (outcome.status.success()) {
-            Result.success(outcome.stdout)
+            RunOutcome.Ok(outcome.stdout)
         } else {
-            Result.failure(
-                Error.Failure(command = cmd.toString(), output = outcome),
-            )
+            RunOutcome.Err(Error.Failure(command = cmd.toString(), output = outcome))
         }
     }
 
@@ -415,14 +422,14 @@ public class Config {
         }
         cmd.arg(name)
         when (val v = minVersion) {
-            is Bound.Included -> cmd.arg("$name >= ${v.value}")
-            is Bound.Excluded -> cmd.arg("$name > ${v.value}")
-            Bound.Unbounded -> { /* no version arg */ }
+            is VersionBound.Included -> cmd.arg("$name >= ${v.value}")
+            is VersionBound.Excluded -> cmd.arg("$name > ${v.value}")
+            VersionBound.Unbounded -> { /* no version arg */ }
         }
         when (val v = maxVersion) {
-            is Bound.Included -> cmd.arg("$name <= ${v.value}")
-            is Bound.Excluded -> cmd.arg("$name < ${v.value}")
-            Bound.Unbounded -> { /* no version arg */ }
+            is VersionBound.Included -> cmd.arg("$name <= ${v.value}")
+            is VersionBound.Excluded -> cmd.arg("$name < ${v.value}")
+            VersionBound.Unbounded -> { /* no version arg */ }
         }
         return cmd
     }
@@ -449,26 +456,42 @@ public class Config {
  * Result of a successful [Config.probe] call: the parsed link search paths,
  * libraries, include paths and other metadata yielded by `pkg-config`.
  */
-public class Library internal constructor(
+public class Library internal constructor() {
+    internal val libsMut: MutableList<String> = mutableListOf()
+    internal val linkPathsMut: MutableList<String> = mutableListOf()
+    internal val linkFilesMut: MutableList<String> = mutableListOf()
+    internal val frameworksMut: MutableList<String> = mutableListOf()
+    internal val frameworkPathsMut: MutableList<String> = mutableListOf()
+    internal val includePathsMut: MutableList<String> = mutableListOf()
+    internal val ldArgsMut: MutableList<List<String>> = mutableListOf()
+
     /** Libraries specified by `-l`. */
-    public val libs: MutableList<String> = mutableListOf(),
+    public val libs: List<String> get() = libsMut.toList()
+
     /** Library search paths specified by `-L`. */
-    public val linkPaths: MutableList<String> = mutableListOf(),
+    public val linkPaths: List<String> get() = linkPathsMut.toList()
+
     /** Library file paths specified without `-l`. */
-    public val linkFiles: MutableList<String> = mutableListOf(),
+    public val linkFiles: List<String> get() = linkFilesMut.toList()
+
     /** Darwin frameworks specified by `-framework`. */
-    public val frameworks: MutableList<String> = mutableListOf(),
+    public val frameworks: List<String> get() = frameworksMut.toList()
+
     /** Darwin framework search paths specified by `-F`. */
-    public val frameworkPaths: MutableList<String> = mutableListOf(),
+    public val frameworkPaths: List<String> get() = frameworkPathsMut.toList()
+
     /** C/C++ header include paths specified by `-I`. */
-    public val includePaths: MutableList<String> = mutableListOf(),
+    public val includePaths: List<String> get() = includePathsMut.toList()
+
     /** Linker options specified by `-Wl`. */
-    public val ldArgs: MutableList<List<String>> = mutableListOf(),
+    public val ldArgs: List<List<String>> get() = ldArgsMut.toList()
+
     /** C/C++ definitions specified by `-D`. */
-    public val defines: MutableMap<String, String?> = mutableMapOf(),
+    public val defines: Defines = Defines()
+
     /** Version specified by .pc file's Version field. */
-    public var version: String = "",
-) {
+    public var version: String = ""
+
     internal companion object {
         fun new(): Library = Library()
 
@@ -569,15 +592,15 @@ public class Library internal constructor(
                     val meta = "rustc-link-search=native=$value"
                     config.printMetadata(meta)
                     dirs.add(value)
-                    linkPaths.add(value)
+                    linkPathsMut.add(value)
                 }
                 "-F" -> {
                     val meta = "rustc-link-search=framework=$value"
                     config.printMetadata(meta)
-                    frameworkPaths.add(value)
+                    frameworkPathsMut.add(value)
                 }
                 "-I" -> {
-                    includePaths.add(value)
+                    includePathsMut.add(value)
                 }
                 "-l" -> {
                     // These are provided by the CRT with MSVC
@@ -597,13 +620,13 @@ public class Library internal constructor(
                         config.printMetadata(meta)
                     }
 
-                    libs.add(value)
+                    libsMut.add(value)
                 }
                 "-D" -> {
                     val iter = value.splitToSequence('=').iterator()
                     val key = iter.next()
                     val maybeValue: String? = if (iter.hasNext()) iter.next() else null
-                    defines[key] = maybeValue
+                    defines.put(key, maybeValue)
                 }
                 "-u" -> {
                     val meta = "rustc-link-arg=-Wl,-u,$value"
@@ -632,13 +655,13 @@ public class Library internal constructor(
                         val lib = iter.next()
                         val meta = "rustc-link-lib=framework=$lib"
                         config.printMetadata(meta)
-                        frameworks.add(lib)
+                        frameworksMut.add(lib)
                     }
                 }
                 "-isystem", "-iquote", "-idirafter" -> {
                     if (iter.hasNext()) {
                         val inc = iter.next()
-                        includePaths.add(inc)
+                        includePathsMut.add(inc)
                     }
                 }
                 "-undefined", "--undefined" -> {
@@ -668,7 +691,7 @@ public class Library internal constructor(
 
                                     val linkLib = "rustc-link-lib=$libBasename"
                                     config.printMetadata(linkLib)
-                                    linkFiles.add(part)
+                                    linkFilesMut.add(part)
                                 }
                             }
                         }
@@ -698,7 +721,7 @@ public class Library internal constructor(
             val meta = "rustc-link-arg=-Wl,${ldOption.joinToString(",")}"
             config.printMetadata(meta)
 
-            ldArgs.add(ldOption.toList())
+            ldArgsMut.add(ldOption.toList())
         }
     }
 
@@ -708,10 +731,62 @@ public class Library internal constructor(
     }
 }
 
+/** A single `-D` define parsed out of pkg-config output. */
+public data class Define(val name: String, val value: String?)
+
+/**
+ * Ordered, deduplicating collection of `-D` defines parsed from pkg-config
+ * output. Behaves like Rust's `HashMap<String, Option<String>>`: the same
+ * name inserted twice keeps only the latest value.
+ */
+public class Defines {
+    private val entries: MutableMap<String, String?> = mutableMapOf()
+
+    /** Insert or overwrite the value associated with [name]. */
+    public fun put(name: String, value: String?) {
+        entries[name] = value
+    }
+
+    /** Look up the value for [name], or `null` if not present. */
+    public operator fun get(name: String): String? = entries[name]
+
+    /** True when [name] has been inserted (regardless of its value). */
+    public operator fun contains(name: String): Boolean = entries.containsKey(name)
+
+    /** Snapshot of the inserted defines, in insertion order. */
+    public fun toList(): List<Define> = entries.map { (k, v) -> Define(k, v) }
+
+    /** Number of defines currently held. */
+    public val size: Int get() = entries.size
+}
+
+/**
+ * Outcome of [Config.probe] / [probeLibrary] / [findLibrary]: either a
+ * successfully parsed [Library], or an [Error] describing why the probe
+ * could not complete.
+ */
+public sealed class ProbeOutcome {
+    public data class Success(val library: Library) : ProbeOutcome()
+    public data class Failure(val error: Error) : ProbeOutcome()
+}
+
+/**
+ * Outcome of [getVariable] / [Config.getVariable]: either the trimmed
+ * variable value, or an [Error] describing why pkg-config could not
+ * supply it.
+ */
+public sealed class VariableOutcome {
+    public data class Success(val value: String) : VariableOutcome()
+    public data class Failure(val error: Error) : VariableOutcome()
+}
+
 /**
  * Represents all reasons `pkg-config` might not succeed or be run at all.
+ * Not a [Throwable] subtype: the Swift Export bridge generates
+ * `Array<Throwable>` shims for any exception-typed public surface, and
+ * those casts to `Array<Any?>` fail under `allWarningsAsErrors`.
  */
-public sealed class Error : RuntimeException() {
+public sealed class Error {
     /**
      * Aborted because of `*_NO_PKG_CONFIG` environment variable.
      *
@@ -760,10 +835,12 @@ public sealed class Error : RuntimeException() {
      */
     public object Nonexhaustive : Error()
 
-    // Failed `error("...")` prints the Debug representation, but the default debug
-    // format lacks helpful instructions for the end users, so route Debug
-    // through Display.
-    override val message: String
+    /**
+     * Human-readable explanation for this error, matching the upstream
+     * `Display`/`Debug` text exactly. Both the auto-`Debug` and `Display`
+     * impls in the Rust crate route here.
+     */
+    public val message: String
         get() = renderDisplay()
 
     private fun renderDisplay(): String = when (this) {
@@ -881,6 +958,17 @@ public sealed class Error : RuntimeException() {
     override fun toString(): String = message
 }
 
+/**
+ * Internal companion of [ProbeOutcome] used by [Config.runProbe] to return
+ * raw stdout bytes or a structured [Error]. Kept internal so the Swift
+ * Export bridge does not have to expose a `RunOutcome<ByteArray>`
+ * generic surface.
+ */
+internal sealed class RunOutcome {
+    internal data class Ok(val stdout: ByteArray) : RunOutcome()
+    internal data class Err(val error: Error) : RunOutcome()
+}
+
 internal fun formatOutput(output: ProcessOutput): String {
     val sb = StringBuilder()
     val stdout = output.stdout.decodeToString()
@@ -895,17 +983,21 @@ internal fun formatOutput(output: ProcessOutput): String {
 }
 
 /** Deprecated in favor of the [probeLibrary] function. */
-@Deprecated("use probeLibrary instead", ReplaceWith("probeLibrary(name)"))
-public fun findLibrary(name: String): Result<Library> =
-    probeLibrary(name).mapCatching { it }
+@Deprecated(
+    "use probeLibrary instead",
+    ReplaceWith("probeLibrary(name)"),
+    level = DeprecationLevel.HIDDEN,
+)
+public fun findLibrary(name: String): ProbeOutcome = probeLibrary(name)
 
 /** Simple shortcut for using all default options for finding a library. */
-public fun probeLibrary(name: String): Result<Library> =
+public fun probeLibrary(name: String): ProbeOutcome =
     Config().probe(name)
 
 @Deprecated(
     "use config.targetSupported() instance method instead",
     ReplaceWith("Config().targetSupported()"),
+    level = DeprecationLevel.HIDDEN,
 )
 public fun targetSupported(): Boolean =
     Config().targetSupported()
@@ -919,11 +1011,12 @@ public fun targetSupported(): Boolean =
  * during cross-compilation unless specifically designed to be used at that
  * time.
  */
-public fun getVariable(packageName: String, variable: String): Result<String> {
+public fun getVariable(packageName: String, variable: String): VariableOutcome {
     val arg = "--variable=$variable"
     val cfg = Config()
-    return cfg.runProbe(packageName, listOf(arg)).map { out ->
-        out.decodeToString().trimEnd()
+    return when (val out = cfg.runProbe(packageName, listOf(arg))) {
+        is RunOutcome.Ok -> VariableOutcome.Success(out.stdout.decodeToString().trimEnd())
+        is RunOutcome.Err -> VariableOutcome.Failure(out.error)
     }
 }
 
