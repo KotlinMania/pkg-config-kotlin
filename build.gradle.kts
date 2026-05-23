@@ -1,3 +1,9 @@
+import java.io.ByteArrayInputStream
+import java.net.URI
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.zip.ZipInputStream
+import org.gradle.api.GradleException
 import org.gradle.api.tasks.ClasspathNormalizer
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.testing.AbstractTestTask
@@ -24,15 +30,168 @@ plugins {
 group = "io.github.kotlinmania"
 version = "0.1.0"
 
+val androidCommandLineToolsRevision = "14742923"
+val projectCompileSdk = "34"
+val projectAndroidBuildTools = "36.0.0"
+val isWindowsHost = System.getProperty("os.name").lowercase().contains("windows")
+val androidSdkOsName =
+    when {
+        isWindowsHost -> "win"
+        System.getProperty("os.name").lowercase().contains("mac") -> "mac"
+        System.getProperty("os.name").lowercase().contains("linux") -> "linux"
+        else -> throw GradleException("Unsupported Android SDK setup OS: ${System.getProperty("os.name")}")
+    }
+val projectAndroidSdkDir = layout.projectDirectory.dir(".android-sdk").asFile
+val androidSdkManager = projectAndroidSdkDir.resolve(
+    if (isWindowsHost) {
+        "cmdline-tools/latest/bin/sdkmanager.bat"
+    } else {
+        "cmdline-tools/latest/bin/sdkmanager"
+    },
+)
+val androidSdkInstallMarker = projectAndroidSdkDir.resolve(".install-complete")
+val maxAndroidSdkLicensePrompts = 200
+val requiredAndroidSdkPackageDirs = listOf(
+    projectAndroidSdkDir.resolve("platform-tools"),
+    projectAndroidSdkDir.resolve("platforms/android-$projectCompileSdk"),
+    projectAndroidSdkDir.resolve("build-tools/$projectAndroidBuildTools"),
+)
+
+fun isProjectAndroidSdkInstalled(): Boolean {
+    val installed =
+        androidSdkInstallMarker.exists() &&
+            androidSdkManager.exists() &&
+            requiredAndroidSdkPackageDirs.all { it.exists() }
+    if (!installed && androidSdkInstallMarker.exists()) {
+        androidSdkInstallMarker.delete()
+    }
+    return installed
+}
+
+fun writeAndroidLocalProperties() {
+    val sdkDirPropertyValue = projectAndroidSdkDir.absolutePath.replace("\\", "/")
+    layout.projectDirectory.file("local.properties").asFile.writeText("sdk.dir=$sdkDirPropertyValue\n")
+}
+
+fun sdkManagerCommand(vararg args: String): List<String> =
+    if (isWindowsHost) {
+        listOf("cmd", "/c", androidSdkManager.absolutePath) + args
+    } else {
+        listOf(androidSdkManager.absolutePath) + args
+    }
+
+fun downloadAndroidCommandLineTools() {
+    val zipName = "commandlinetools-$androidSdkOsName-${androidCommandLineToolsRevision}_latest.zip"
+    val url = "https://dl.google.com/android/repository/$zipName"
+    val tmpDir = projectAndroidSdkDir.resolve(".tmp/commandline-tools")
+    val zipFile = tmpDir.resolve(zipName)
+    val latestDir = projectAndroidSdkDir.resolve("cmdline-tools/latest")
+
+    println("setup-android-sdk: downloading $url")
+    tmpDir.deleteRecursively()
+    tmpDir.mkdirs()
+
+    try {
+        URI(url).toURL().openStream().use { input ->
+            Files.copy(input, zipFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+
+        latestDir.deleteRecursively()
+        latestDir.mkdirs()
+        val canonicalLatestDir = latestDir.canonicalFile.toPath()
+
+        ZipInputStream(zipFile.inputStream().buffered()).use { zipInput ->
+            generateSequence { zipInput.nextEntry }.forEach { entry ->
+                val relativeName = entry.name.removePrefix("cmdline-tools/").trimStart('/')
+                if (relativeName.isNotEmpty()) {
+                    val target = latestDir.resolve(relativeName).canonicalFile
+                    if (!target.toPath().startsWith(canonicalLatestDir)) {
+                        throw GradleException("Refusing to extract Android SDK entry outside $latestDir: ${entry.name}")
+                    }
+                    if (entry.isDirectory) {
+                        target.mkdirs()
+                    } else {
+                        target.parentFile.mkdirs()
+                        Files.copy(zipInput, target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                        if (!isWindowsHost && relativeName.startsWith("bin/")) {
+                            target.setExecutable(true)
+                        }
+                    }
+                }
+                zipInput.closeEntry()
+            }
+        }
+
+        if (!isWindowsHost) {
+            androidSdkManager.setExecutable(true)
+        }
+    } finally {
+        tmpDir.deleteRecursively()
+    }
+}
+
+fun installProjectAndroidSdk(execOperations: ExecOperations) {
+    if (isProjectAndroidSdkInstalled()) {
+        writeAndroidLocalProperties()
+        println("setup-android-sdk: SDK already installed at $projectAndroidSdkDir")
+        return
+    }
+
+    if (!androidSdkManager.exists()) {
+        downloadAndroidCommandLineTools()
+    }
+
+    println("setup-android-sdk: accepting licenses")
+    val licenseAnswers = "y\n".repeat(maxAndroidSdkLicensePrompts).toByteArray(Charsets.UTF_8)
+    val licenseExecResult = execOperations.exec {
+        commandLine(sdkManagerCommand("--sdk_root=${projectAndroidSdkDir.absolutePath}", "--licenses"))
+        standardInput = ByteArrayInputStream(licenseAnswers)
+        isIgnoreExitValue = true
+    }
+    if (licenseExecResult.exitValue != 0) {
+        throw GradleException("Android SDK license acceptance failed with exit code ${licenseExecResult.exitValue}")
+    }
+
+    println("setup-android-sdk: installing platform-tools, android-$projectCompileSdk, build-tools;$projectAndroidBuildTools")
+    val installLog = projectAndroidSdkDir.resolve("sdkmanager-install.log")
+    installLog.parentFile.mkdirs()
+    installLog.outputStream().use { output ->
+        val installExecResult = execOperations.exec {
+            commandLine(
+                sdkManagerCommand(
+                    "--sdk_root=${projectAndroidSdkDir.absolutePath}",
+                    "platform-tools",
+                    "platforms;android-$projectCompileSdk",
+                    "build-tools;$projectAndroidBuildTools",
+                ),
+            )
+            standardOutput = output
+            errorOutput = output
+            isIgnoreExitValue = true
+        }
+        if (installExecResult.exitValue != 0) {
+            throw GradleException(
+                "Android SDK package install failed with exit code ${installExecResult.exitValue}. " +
+                    "Install log:\n${installLog.readText()}",
+            )
+        }
+    }
+    println("setup-android-sdk: install log at $installLog")
+
+    writeAndroidLocalProperties()
+    androidSdkInstallMarker.writeText("")
+    println("setup-android-sdk: done")
+    println("  SDK at:     $projectAndroidSdkDir")
+    println("  configured: local.properties -> $projectAndroidSdkDir")
+}
+
 // The Android Gradle plugin resolves the SDK location while Gradle builds the
-// task graph — before any task executes — so a project-local Android SDK must
-// already be installed by the time configuration runs. setup-android-sdk.sh
-// installs the SDK into this repo's own .android-sdk/ and writes
-// local.properties to point there. It runs unconditionally on every
-// configuration: the script itself is idempotent (an already-installed SDK is
-// a fast no-op), but there is deliberately no Gradle-side condition that could
-// skip the install, and no fallback to a sibling repo's SDK.
-serviceOf<ExecOperations>().exec { commandLine("bash", "./setup-android-sdk.sh") }
+// task graph, before any task executes, so a project-local Android SDK must
+// already be installed by the time configuration reaches the android target.
+// This configuration-time installer is idempotent and always writes
+// local.properties to this repo's own .android-sdk path.
+val androidSdkExecOperations = serviceOf<ExecOperations>()
+installProjectAndroidSdk(androidSdkExecOperations)
 
 kotlin {
     applyDefaultHierarchyTemplate()
@@ -148,58 +307,6 @@ kotlin {
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
-            }
-        }
-        val posixMain by creating {
-            dependsOn(commonMain)
-        }
-        val posixTest by creating {
-            dependsOn(commonTest)
-        }
-
-        listOf(
-            "macosArm64Main",
-            "iosArm64Main",
-            "iosSimulatorArm64Main",
-            "iosX64Main",
-            "tvosArm64Main",
-            "tvosSimulatorArm64Main",
-            "watchosArm32Main",
-            "watchosArm64Main",
-            "watchosDeviceArm64Main",
-            "watchosSimulatorArm64Main",
-            "linuxX64Main",
-            "linuxArm64Main",
-            "androidNativeArm32Main",
-            "androidNativeArm64Main",
-            "androidNativeX86Main",
-            "androidNativeX64Main",
-        ).forEach { sourceSetName ->
-            named(sourceSetName) {
-                dependsOn(posixMain)
-            }
-        }
-
-        listOf(
-            "macosArm64Test",
-            "iosArm64Test",
-            "iosSimulatorArm64Test",
-            "iosX64Test",
-            "tvosArm64Test",
-            "tvosSimulatorArm64Test",
-            "watchosArm32Test",
-            "watchosArm64Test",
-            "watchosDeviceArm64Test",
-            "watchosSimulatorArm64Test",
-            "linuxX64Test",
-            "linuxArm64Test",
-            "androidNativeArm32Test",
-            "androidNativeArm64Test",
-            "androidNativeX86Test",
-            "androidNativeX64Test",
-        ).forEach { sourceSetName ->
-            named(sourceSetName) {
-                dependsOn(posixTest)
             }
         }
     }
@@ -320,10 +427,91 @@ mavenPublishing {
     }
 }
 
-tasks.register<Exec>("setupAndroidSdk") {
+// ---------------------------------------------------------------------------
+// CodeQL Java/Kotlin extraction task
+//
+// .github/workflows/codeql.yml invokes `./gradlew codeqlCompileJvm` to feed
+// kotlinc-compiled commonMain through the CodeQL Java agent.
+val codeqlKotlinc: Configuration by configurations.creating {
+    description = "Kotlin compiler (CodeQL extraction target only - not published)"
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
+val codeqlSourceClasspath: Configuration by configurations.creating {
+    description = "Runtime classpath for CodeQL extraction of commonMain sources"
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
+dependencies {
+    codeqlKotlinc("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.21")
+    codeqlSourceClasspath("org.jetbrains.kotlin:kotlin-stdlib:2.3.21")
+    codeqlSourceClasspath("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0")
+    codeqlSourceClasspath("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.11.0")
+    codeqlSourceClasspath("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
+    codeqlSourceClasspath("org.jetbrains.kotlinx:kotlinx-datetime-jvm:0.8.0")
+    codeqlSourceClasspath("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:0.4.0")
+}
+
+val codeqlCompileJvm = tasks.register<JavaExec>("codeqlCompileJvm") {
+    description =
+        "Compile commonMain Kotlin sources with kotlinc 2.3.21 for CodeQL Java/Kotlin extraction."
+    group = "verification"
+
+    classpath(codeqlKotlinc)
+    mainClass.set("org.jetbrains.kotlin.cli.jvm.K2JVMCompiler")
+
+    val outDir = layout.buildDirectory.dir("classes/kotlin/codeql-jvm")
+    val sources = fileTree("src/commonMain/kotlin") { include("**/*.kt") }
+    val sentinelDir = layout.buildDirectory.dir("generated/codeql-empty-source")
+    inputs.files(sources).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(codeqlSourceClasspath).withNormalizer(ClasspathNormalizer::class.java)
+    outputs.dir(outDir)
+    outputs.dir(sentinelDir)
+
+    doFirst {
+        outDir.get().asFile.mkdirs()
+        val fullClasspath =
+            codeqlSourceClasspath.resolve()
+                .joinToString(File.pathSeparator) { it.absolutePath }
+        val sourceFiles = sources.files.toMutableList()
+        if (sourceFiles.isEmpty()) {
+            val sentinelFile = sentinelDir.get().asFile.resolve("io/github/kotlinmania/pkgconfig/CodeqlEmptySentinel.kt")
+            sentinelFile.parentFile.mkdirs()
+            sentinelFile.writeText(
+                """
+                // Auto-generated. Present so codeqlCompileJvm has at least
+                // one Kotlin source to feed kotlinc; replaced by real
+                // commonMain content once porting begins.
+                package io.github.kotlinmania.pkgconfig
+
+                private object CodeqlEmptySentinel
+                """.trimIndent(),
+            )
+            sourceFiles += sentinelFile
+        }
+        args = listOf(
+            "-d", outDir.get().asFile.absolutePath,
+            "-classpath", fullClasspath,
+            "-jvm-target", "21",
+            "-no-stdlib",
+            "-no-reflect",
+            "-language-version", "2.3",
+            "-api-version", "2.3",
+            "-Xexpect-actual-classes",
+            "-opt-in", "kotlin.time.ExperimentalTime",
+            "-opt-in", "kotlin.concurrent.atomics.ExperimentalAtomicApi",
+        ) + sourceFiles.map { it.absolutePath }
+    }
+}
+
+tasks.register("setupAndroidSdk") {
     group = "setup"
     description = "Downloads and configures the project-local Android SDK."
-    commandLine("./setup-android-sdk.sh")
+    doLast {
+        installProjectAndroidSdk(androidSdkExecOperations)
+    }
 }
 
 tasks.register("test") {
