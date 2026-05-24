@@ -30,6 +30,17 @@ let package = Package(
                     "-L", "../build/swift-test",
                     "-lPkgConfig",
                 ]),
+                // The Kotlin/Native runtime baked into `libPkgConfig.a`
+                // references CoreFoundation (`_CFAttributedString*`) and
+                // Darwin XPC (`_xpc_session_*`) symbols. Xcode auto-links
+                // these via the SDK's implicit framework list when
+                // consuming an SPM package through a project; standalone
+                // `swift test` does not, so the link fails with
+                // `Undefined symbols for architecture arm64`. Link both
+                // frameworks explicitly so `swift test` resolves the same
+                // platform surface Xcode picks up automatically.
+                .linkedFramework("CoreFoundation"),
+                .linkedFramework("Foundation"),
             ]
         ),
     ]
