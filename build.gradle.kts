@@ -323,63 +323,15 @@ kotlin {
             }
         }
 
-        // Restore the posixMain / posixTest intermediate source sets the
-        // src/posixMain/.../PosixPlatform.kt actual is defined against. PR
-        // #15 (sync from http-kotlin) dropped these because http-kotlin
-        // does not use posix actuals; pkg-config-kotlin's commonMain
-        // `internal expect fun envVar / pathExists / pathIsFile /
-        // spawnProcess / printStdoutLine / currentTargetOs` are answered
-        // by the shared posix actual on every Kotlin/Native target
-        // except mingwX64 (which has its own MingwPlatform.kt).
-        // Now configured via applyDefaultHierarchyTemplate above.
-        val posixMain by getting
-        val posixTest by getting
-
-        listOf(
-            "macosArm64Main",
-            "iosArm64Main",
-            "iosSimulatorArm64Main",
-            "iosX64Main",
-            "tvosArm64Main",
-            "tvosSimulatorArm64Main",
-            "watchosArm32Main",
-            "watchosArm64Main",
-            "watchosDeviceArm64Main",
-            "watchosSimulatorArm64Main",
-            "linuxX64Main",
-            "linuxArm64Main",
-            "androidNativeArm32Main",
-            "androidNativeArm64Main",
-            "androidNativeX86Main",
-            "androidNativeX64Main",
-        ).forEach { sourceSetName ->
-            named(sourceSetName) {
-                dependsOn(posixMain)
-            }
-        }
-
-        listOf(
-            "macosArm64Test",
-            "iosArm64Test",
-            "iosSimulatorArm64Test",
-            "iosX64Test",
-            "tvosArm64Test",
-            "tvosSimulatorArm64Test",
-            "watchosArm32Test",
-            "watchosArm64Test",
-            "watchosDeviceArm64Test",
-            "watchosSimulatorArm64Test",
-            "linuxX64Test",
-            "linuxArm64Test",
-            "androidNativeArm32Test",
-            "androidNativeArm64Test",
-            "androidNativeX86Test",
-            "androidNativeX64Test",
-        ).forEach { sourceSetName ->
-            named(sourceSetName) {
-                dependsOn(posixTest)
-            }
-        }
+        // The posixMain / posixTest intermediate source sets for the
+        // src/posixMain/.../PosixPlatform.kt actual are now automatically
+        // configured via applyDefaultHierarchyTemplate above. PR #15 (sync
+        // from http-kotlin) dropped these because http-kotlin does not use
+        // posix actuals; pkg-config-kotlin's commonMain `internal expect fun
+        // envVar / pathExists / pathIsFile / spawnProcess / printStdoutLine /
+        // currentTargetOs` are answered by the shared posix actual on every
+        // Kotlin/Native target except mingwX64 (which has its own
+        // MingwPlatform.kt).
     }
     jvmToolchain(21)
 }
