@@ -194,7 +194,15 @@ val androidSdkExecOperations = serviceOf<ExecOperations>()
 installProjectAndroidSdk(androidSdkExecOperations)
 
 kotlin {
-    applyDefaultHierarchyTemplate()
+    applyDefaultHierarchyTemplate {
+        common {
+            group("posix") {
+                withLinux()
+                withApple()
+                withAndroidNative()
+            }
+        }
+    }
 
     sourceSets.all {
         languageSettings.optIn("kotlin.time.ExperimentalTime")
