@@ -1,4 +1,3 @@
-import java.io.ByteArrayInputStream
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -50,7 +49,6 @@ val androidSdkManager = projectAndroidSdkDir.resolve(
     },
 )
 val androidSdkInstallMarker = projectAndroidSdkDir.resolve(".install-complete")
-val maxAndroidSdkLicensePrompts = 200
 val requiredAndroidSdkPackageDirs = listOf(
     projectAndroidSdkDir.resolve("platform-tools"),
     projectAndroidSdkDir.resolve("platforms/android-$projectCompileSdk"),
@@ -141,15 +139,22 @@ fun installProjectAndroidSdk(execOperations: ExecOperations) {
         downloadAndroidCommandLineTools()
     }
 
-    println("setup-android-sdk: accepting licenses")
-    val licenseAnswers = "y\n".repeat(maxAndroidSdkLicensePrompts).toByteArray(Charsets.UTF_8)
-    val licenseExecResult = execOperations.exec {
-        commandLine(sdkManagerCommand("--sdk_root=${projectAndroidSdkDir.absolutePath}", "--licenses"))
-        standardInput = ByteArrayInputStream(licenseAnswers)
-        isIgnoreExitValue = true
-    }
-    if (licenseExecResult.exitValue != 0) {
-        throw GradleException("Android SDK license acceptance failed with exit code ${licenseExecResult.exitValue}")
+    println("setup-android-sdk: pre-accepting licenses")
+    val licensesDir = projectAndroidSdkDir.resolve("licenses")
+    licensesDir.mkdirs()
+
+    val licenseHashes = mapOf(
+        "android-sdk-license" to "24333f8a63b6825ea9c5514f83c2829b004d1fee",
+        "android-googletv-license" to "601085b94cd77f0b54ff86406957099ebe79c4d6",
+        "android-sdk-arm-dbt-license" to "859f317696f67ef3d7f30a50a5560e7834b43903",
+        "android-sdk-preview-license" to "84831b9409646a918e30573bab4c9c91346d8abd",
+        "google-gdk-license" to "33b6a2b64607f11b759f320ef9dff4ae5c47d97a",
+        "intel-android-extra-license" to "d975f751698a77b662f1254ddbeed3901e976f5a",
+        "mips-android-sysimage-license" to "e9acab5b5fbb560a72cfaecce8946896ff6aab9d"
+    )
+
+    licenseHashes.forEach { (licenseName, hash) ->
+        licensesDir.resolve(licenseName).writeText("$hash\n")
     }
 
     println("setup-android-sdk: installing platform-tools, android-$projectCompileSdk, build-tools;$projectAndroidBuildTools")
@@ -318,66 +323,15 @@ kotlin {
             }
         }
 
-        // Restore the posixMain / posixTest intermediate source sets the
-        // src/posixMain/.../PosixPlatform.kt actual is defined against. PR
-        // #15 (sync from http-kotlin) dropped these because http-kotlin
-        // does not use posix actuals; pkg-config-kotlin's commonMain
-        // `internal expect fun envVar / pathExists / pathIsFile /
-        // spawnProcess / printStdoutLine / currentTargetOs` are answered
-        // by the shared posix actual on every Kotlin/Native target
-        // except mingwX64 (which has its own MingwPlatform.kt).
-        val posixMain by creating {
-            dependsOn(commonMain)
-        }
-        val posixTest by creating {
-            dependsOn(commonTest)
-        }
-
-        listOf(
-            "macosArm64Main",
-            "iosArm64Main",
-            "iosSimulatorArm64Main",
-            "iosX64Main",
-            "tvosArm64Main",
-            "tvosSimulatorArm64Main",
-            "watchosArm32Main",
-            "watchosArm64Main",
-            "watchosDeviceArm64Main",
-            "watchosSimulatorArm64Main",
-            "linuxX64Main",
-            "linuxArm64Main",
-            "androidNativeArm32Main",
-            "androidNativeArm64Main",
-            "androidNativeX86Main",
-            "androidNativeX64Main",
-        ).forEach { sourceSetName ->
-            named(sourceSetName) {
-                dependsOn(posixMain)
-            }
-        }
-
-        listOf(
-            "macosArm64Test",
-            "iosArm64Test",
-            "iosSimulatorArm64Test",
-            "iosX64Test",
-            "tvosArm64Test",
-            "tvosSimulatorArm64Test",
-            "watchosArm32Test",
-            "watchosArm64Test",
-            "watchosDeviceArm64Test",
-            "watchosSimulatorArm64Test",
-            "linuxX64Test",
-            "linuxArm64Test",
-            "androidNativeArm32Test",
-            "androidNativeArm64Test",
-            "androidNativeX86Test",
-            "androidNativeX64Test",
-        ).forEach { sourceSetName ->
-            named(sourceSetName) {
-                dependsOn(posixTest)
-            }
-        }
+        // The posixMain / posixTest intermediate source sets for the
+        // src/posixMain/.../PosixPlatform.kt actual are now automatically
+        // configured via applyDefaultHierarchyTemplate above. PR #15 (sync
+        // from http-kotlin) dropped these because http-kotlin does not use
+        // posix actuals; pkg-config-kotlin's commonMain `internal expect fun
+        // envVar / pathExists / pathIsFile / spawnProcess / printStdoutLine /
+        // currentTargetOs` are answered by the shared posix actual on every
+        // Kotlin/Native target except mingwX64 (which has its own
+        // MingwPlatform.kt).
     }
     jvmToolchain(21)
 }
