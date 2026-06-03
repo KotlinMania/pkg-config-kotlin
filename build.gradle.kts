@@ -468,8 +468,8 @@ val codeqlSourceClasspath: Configuration by configurations.creating {
 }
 
 dependencies {
-    codeqlKotlinc("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.21")
-    codeqlSourceClasspath("org.jetbrains.kotlin:kotlin-stdlib:2.3.21")
+    codeqlKotlinc("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.4.0")
+    codeqlSourceClasspath("org.jetbrains.kotlin:kotlin-stdlib:2.4.0")
     codeqlSourceClasspath("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0")
     codeqlSourceClasspath("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.11.0")
     codeqlSourceClasspath("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
