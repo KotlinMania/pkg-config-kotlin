@@ -26,31 +26,33 @@ internal actual fun spawnProcess(
     exe: String,
     args: List<String>,
     env: Map<String, String>,
-): ProcessOutput {
-    throw IoSpawnException(
-        IoError(
-            IoErrorKind.NotFound,
-            "process invocation is not available on wasm-js; pkg-config cannot be probed here",
-        ),
-    )
-}
+): ProcessOutput = throw IoSpawnException(
+    IoError(
+        IoErrorKind.NotFound,
+        "process invocation is not available on wasm-js; pkg-config cannot be probed here",
+    ),
+)
 
 internal actual fun printStdoutLine(line: String) {
     println(line)
 }
 
-private fun jsGetEnv(name: String): String? = js(
-    "(typeof process !== 'undefined' && process && process.env && typeof process.env[name] === 'string') ? process.env[name] : null",
-)
+private fun jsGetEnv(name: String): String? =
+    js(
+        "(typeof process !== 'undefined' && process && process.env && typeof process.env[name] === 'string') ? process.env[name] : null",
+    )
 
-private fun jsOsPlatform(): String? = js(
-    "(typeof process !== 'undefined' && process && typeof process.platform === 'string') ? process.platform : null",
-)
+private fun jsOsPlatform(): String? =
+    js(
+        "(typeof process !== 'undefined' && process && typeof process.platform === 'string') ? process.platform : null",
+    )
 
-private fun jsPathExists(path: String): Boolean = js(
-    "(function(p){try{var fs=require('fs');return !!fs.existsSync(p);}catch(e){return false;}})(path)",
-)
+private fun jsPathExists(path: String): Boolean =
+    js(
+        "(function(p){try{var fs=require('fs');return !!fs.existsSync(p);}catch(e){return false;}})(path)",
+    )
 
-private fun jsPathIsFile(path: String): Boolean = js(
-    "(function(p){try{var fs=require('fs');return !!fs.statSync(p).isFile();}catch(e){return false;}})(path)",
-)
+private fun jsPathIsFile(path: String): Boolean =
+    js(
+        "(function(p){try{var fs=require('fs');return !!fs.statSync(p).isFile();}catch(e){return false;}})(path)",
+    )

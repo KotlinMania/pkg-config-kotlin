@@ -36,16 +36,18 @@ internal actual fun spawnProcess(
         _putenv("$key=$value")
     }
     try {
-        val command = buildString {
-            append(quoteWin(exe))
-            for (arg in args) {
-                append(' ')
-                append(quoteWin(arg))
+        val command =
+            buildString {
+                append(quoteWin(exe))
+                for (arg in args) {
+                    append(' ')
+                    append(quoteWin(arg))
+                }
+                append(" 2>&1")
             }
-            append(" 2>&1")
-        }
-        val handle = _popen(command, "rb")
-            ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "_popen failed for `$exe`"))
+        val handle =
+            _popen(command, "rb")
+                ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "_popen failed for `$exe`"))
         val out = ArrayList<Byte>()
         while (true) {
             val c = fgetc(handle)
