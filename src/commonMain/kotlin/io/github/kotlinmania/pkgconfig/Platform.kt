@@ -34,13 +34,16 @@ public data class ProcessOutput(
  * Mirrors `std::process::ExitStatus`. `code` is `null` when the process was
  * terminated by a signal and therefore has no portable integer status.
  */
-public data class ProcessStatus(val code: Int?) {
+public data class ProcessStatus(
+    val code: Int?,
+) {
     fun success(): Boolean = code == 0
 
-    override fun toString(): String = when (code) {
-        null -> "signal: terminated"
-        else -> "exit status: $code"
-    }
+    override fun toString(): String =
+        when (code) {
+            null -> "signal: terminated"
+            else -> "exit status: $code"
+        }
 }
 
 /**
@@ -51,7 +54,10 @@ public data class ProcessStatus(val code: Int?) {
  * Array<Throwable>` into `Array<Any?>` casts that fail under
  * `allWarningsAsErrors`.
  */
-public data class IoError(val kind: IoErrorKind, val message: String)
+public data class IoError(
+    val kind: IoErrorKind,
+    val message: String,
+)
 
 public enum class IoErrorKind {
     NotFound,
@@ -63,7 +69,9 @@ public enum class IoErrorKind {
  * [spawnProcess] actuals can keep throwing through a `try`/`catch`. Kept
  * `internal` so it never reaches the Swift Export bridge.
  */
-internal class IoSpawnException(val ioError: IoError) : Throwable(ioError.message)
+internal class IoSpawnException(
+    val ioError: IoError,
+) : Throwable(ioError.message)
 
 /**
  * Operating system family corresponding to Rust's `cfg!(target_os = "...")`
@@ -83,11 +91,13 @@ internal enum class TargetOs {
 }
 
 /** True when the active target satisfies Rust's `cfg!(unix)`. */
-internal fun TargetOs.isUnix(): Boolean = when (this) {
-    TargetOs.Macos, TargetOs.Ios, TargetOs.TvOs, TargetOs.WatchOs,
-    TargetOs.Linux, TargetOs.Android -> true
-    else -> false
-}
+internal fun TargetOs.isUnix(): Boolean =
+    when (this) {
+        TargetOs.Macos, TargetOs.Ios, TargetOs.TvOs, TargetOs.WatchOs,
+        TargetOs.Linux, TargetOs.Android,
+        -> true
+        else -> false
+    }
 
 /** Operating system the current Kotlin binary is running on. */
 internal expect fun currentTargetOs(): TargetOs

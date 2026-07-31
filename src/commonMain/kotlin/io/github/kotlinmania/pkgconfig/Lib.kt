@@ -87,8 +87,14 @@ package io.github.kotlinmania.pkgconfig
  * `VersionBound.Included<Any?>` casts that fail under `allWarningsAsErrors`.
  */
 public sealed class VersionBound {
-    public data class Included(val value: String) : VersionBound()
-    public data class Excluded(val value: String) : VersionBound()
+    public data class Included(
+        val value: String,
+    ) : VersionBound()
+
+    public data class Excluded(
+        val value: String,
+    ) : VersionBound()
+
     public object Unbounded : VersionBound()
 }
 
@@ -97,7 +103,9 @@ public sealed class VersionBound {
  * `get_args` etc). This is needed to reconstruct the pkg-config command for
  * output in a copy-paste friendly format via [toString].
  */
-internal class WrappedCommand internal constructor(programArg: String) {
+internal class WrappedCommand internal constructor(
+    programArg: String,
+) {
     val program: String = programArg
     private val envVars: MutableList<Pair<String, String>> = mutableListOf()
     private val collectedArgs: MutableList<String> = mutableListOf()
@@ -133,12 +141,14 @@ internal class WrappedCommand internal constructor(programArg: String) {
     // `PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1 PKG_CONFIG_ALLOW_SYSTEM_LIBS=1 pkg-config --libs --cflags mylibrary`
     override fun toString(): String {
         // Format all explicitly defined environment variables
-        val envs = envVars
-            .joinToString(separator = " ") { (env, arg) -> "$env=$arg" }
+        val envs =
+            envVars
+                .joinToString(separator = " ") { (env, arg) -> "$env=$arg" }
 
         // Format all pkg-config arguments
-        val argsRendered = collectedArgs
-            .joinToString(separator = " ") { arg -> quoteIfNeeded(arg) }
+        val argsRendered =
+            collectedArgs
+                .joinToString(separator = " ") { arg -> quoteIfNeeded(arg) }
 
         return "$envs $program $argsRendered"
     }
@@ -172,7 +182,8 @@ public class Config {
             level = DeprecationLevel.HIDDEN,
         )
         public fun getVariable(packageName: String, variable: String): VariableOutcome =
-            io.github.kotlinmania.pkgconfig.getVariable(packageName, variable)
+            io.github.kotlinmania.pkgconfig
+                .getVariable(packageName, variable)
     }
 
     /**
@@ -202,16 +213,18 @@ public class Config {
 
     /** Indicate that the library's version must be in `range`. */
     public fun rangeVersion(start: VersionBound, end: VersionBound): Config {
-        this.minVersion = when (start) {
-            is VersionBound.Included -> VersionBound.Included(start.value)
-            is VersionBound.Excluded -> VersionBound.Excluded(start.value)
-            VersionBound.Unbounded -> VersionBound.Unbounded
-        }
-        this.maxVersion = when (end) {
-            is VersionBound.Included -> VersionBound.Included(end.value)
-            is VersionBound.Excluded -> VersionBound.Excluded(end.value)
-            VersionBound.Unbounded -> VersionBound.Unbounded
-        }
+        this.minVersion =
+            when (start) {
+                is VersionBound.Included -> VersionBound.Included(start.value)
+                is VersionBound.Excluded -> VersionBound.Excluded(start.value)
+                VersionBound.Unbounded -> VersionBound.Unbounded
+            }
+        this.maxVersion =
+            when (end) {
+                is VersionBound.Included -> VersionBound.Included(end.value)
+                is VersionBound.Excluded -> VersionBound.Excluded(end.value)
+                VersionBound.Unbounded -> VersionBound.Unbounded
+            }
         return this
     }
 
@@ -291,28 +304,31 @@ public class Config {
         val library = Library.new()
 
         val firstOutcome = runProbe(name, listOf("--libs", "--cflags"))
-        val output = when (firstOutcome) {
-            is RunOutcome.Ok -> firstOutcome.stdout
-            is RunOutcome.Err -> {
-                val mapped = if (firstOutcome.error is Error.Failure) {
-                    Error.ProbeFailure(
-                        name = name,
-                        command = firstOutcome.error.command,
-                        output = firstOutcome.error.output,
-                    )
-                } else {
-                    firstOutcome.error
+        val output =
+            when (firstOutcome) {
+                is RunOutcome.Ok -> firstOutcome.stdout
+                is RunOutcome.Err -> {
+                    val mapped =
+                        if (firstOutcome.error is Error.Failure) {
+                            Error.ProbeFailure(
+                                name = name,
+                                command = firstOutcome.error.command,
+                                output = firstOutcome.error.output,
+                            )
+                        } else {
+                            firstOutcome.error
+                        }
+                    return ProbeOutcome.Failure(mapped)
                 }
-                return ProbeOutcome.Failure(mapped)
             }
-        }
         library.parseLibsCflags(name, output, this)
 
         val modOutcome = runProbe(name, listOf("--modversion"))
-        val modversion = when (modOutcome) {
-            is RunOutcome.Ok -> modOutcome.stdout
-            is RunOutcome.Err -> return ProbeOutcome.Failure(modOutcome.error)
-        }
+        val modversion =
+            when (modOutcome) {
+                is RunOutcome.Ok -> modOutcome.stdout
+                is RunOutcome.Err -> return ProbeOutcome.Failure(modOutcome.error)
+            }
         library.parseModversion(modversion.decodeToString())
 
         return ProbeOutcome.Success(library)
@@ -357,9 +373,9 @@ public class Config {
             val kind = if (host == target) "HOST" else "TARGET"
             val targetU = target.replace('-', '_')
 
-            envVarOs("${varBase}_${target}")
-                ?: envVarOs("${varBase}_${targetU}")
-                ?: envVarOs("${kind}_${varBase}")
+            envVarOs("${varBase}_$target")
+                ?: envVarOs("${varBase}_$targetU")
+                ?: envVarOs("${kind}_$varBase")
                 ?: envVarOs(varBase)
         } else {
             envVarOs(varBase)
@@ -383,19 +399,20 @@ public class Config {
 
         val cmd = command(exe, name, args)
 
-        val outcome: ProcessOutput = try {
-            cmd.output()
-        } catch (e: IoSpawnException) {
-            if (fallbackExe != null) {
-                try {
-                    command(fallbackExe, name, args).output()
-                } catch (_: IoSpawnException) {
+        val outcome: ProcessOutput =
+            try {
+                cmd.output()
+            } catch (e: IoSpawnException) {
+                if (fallbackExe != null) {
+                    try {
+                        command(fallbackExe, name, args).output()
+                    } catch (_: IoSpawnException) {
+                        return RunOutcome.Err(Error.Command(command = cmd.toString(), ioCause = e.ioError))
+                    }
+                } else {
                     return RunOutcome.Err(Error.Command(command = cmd.toString(), ioCause = e.ioError))
                 }
-            } else {
-                return RunOutcome.Err(Error.Command(command = cmd.toString(), ioCause = e.ioError))
             }
-        }
 
         return if (outcome.status.success()) {
             RunOutcome.Ok(outcome.stdout)
@@ -564,18 +581,20 @@ public class Library internal constructor() {
         val target = envVar("TARGET")
         val isMsvc = target?.contains("msvc") ?: false
 
-        val systemRoots: List<String> = if (currentTargetOs() == TargetOs.Macos) {
-            listOf("/Library", "/System")
-        } else {
-            val sysroot = config.envVarOs("PKG_CONFIG_SYSROOT_DIR")
-                ?: config.envVarOs("SYSROOT")
-
-            if (currentTargetOs() == TargetOs.Windows) {
-                if (sysroot != null) listOf(sysroot) else emptyList()
+        val systemRoots: List<String> =
+            if (currentTargetOs() == TargetOs.Macos) {
+                listOf("/Library", "/System")
             } else {
-                listOf(sysroot ?: "/usr")
+                val sysroot =
+                    config.envVarOs("PKG_CONFIG_SYSROOT_DIR")
+                        ?: config.envVarOs("SYSROOT")
+
+                if (currentTargetOs() == TargetOs.Windows) {
+                    if (sysroot != null) listOf(sysroot) else emptyList()
+                } else {
+                    listOf(sysroot ?: "/usr")
+                }
             }
-        }
 
         val dirs: MutableList<String> = mutableListOf()
         val statik = config.isStatic(name)
@@ -583,9 +602,11 @@ public class Library internal constructor() {
         val words = splitFlags(output)
 
         // Handle single-character arguments like `-I/usr/include`
-        val parts = words.asSequence()
-            .filter { it.length > 2 }
-            .map { Pair(it.substring(0, 2), it.substring(2)) }
+        val parts =
+            words
+                .asSequence()
+                .filter { it.length > 2 }
+                .map { Pair(it.substring(0, 2), it.substring(2)) }
         for ((flag, value) in parts) {
             when (flag) {
                 "-L" -> {
@@ -610,7 +631,7 @@ public class Library internal constructor() {
 
                     if (value.startsWith(':')) {
                         // Pass this flag to linker directly.
-                        val meta = "rustc-link-arg=${flag}${value}"
+                        val meta = "rustc-link-arg=${flag}$value"
                         config.printMetadata(meta)
                     } else if (statik && isStaticAvailable(value, systemRoots, dirs)) {
                         val meta = "rustc-link-lib=static=$value"
@@ -637,17 +658,18 @@ public class Library internal constructor() {
         }
 
         // Handle multi-character arguments with space-separated value like `-framework foo`
-        val iter: Iterator<String> = sequence {
-            for (arg in words) {
-                if (arg.startsWith("-Wl,")) {
-                    for (sub in arg.substring(4).split(',')) {
-                        yield(sub)
+        val iter: Iterator<String> =
+            sequence {
+                for (arg in words) {
+                    if (arg.startsWith("-Wl,")) {
+                        for (sub in arg.substring(4).split(',')) {
+                            yield(sub)
+                        }
+                    } else {
+                        yield(arg)
                     }
-                } else {
-                    yield(arg)
                 }
-            }
-        }.iterator()
+            }.iterator()
         while (iter.hasNext()) {
             when (val part = iter.next()) {
                 "-framework" -> {
@@ -667,7 +689,7 @@ public class Library internal constructor() {
                 "-undefined", "--undefined" -> {
                     if (iter.hasNext()) {
                         val symbol = iter.next()
-                        val meta = "rustc-link-arg=-Wl,${part},${symbol}"
+                        val meta = "rustc-link-arg=-Wl,$part,$symbol"
                         config.printMetadata(meta)
                     }
                 }
@@ -732,7 +754,10 @@ public class Library internal constructor() {
 }
 
 /** A single `-D` define parsed out of pkg-config output. */
-public data class Define(val name: String, val value: String?)
+public data class Define(
+    val name: String,
+    val value: String?,
+)
 
 /**
  * Ordered, deduplicating collection of `-D` defines parsed from pkg-config
@@ -766,8 +791,13 @@ public class Defines {
  * could not complete.
  */
 public sealed class ProbeOutcome {
-    public data class Success(val library: Library) : ProbeOutcome()
-    public data class Failure(val error: Error) : ProbeOutcome()
+    public data class Success(
+        val library: Library,
+    ) : ProbeOutcome()
+
+    public data class Failure(
+        val error: Error,
+    ) : ProbeOutcome()
 }
 
 /**
@@ -776,8 +806,13 @@ public sealed class ProbeOutcome {
  * supply it.
  */
 public sealed class VariableOutcome {
-    public data class Success(val value: String) : VariableOutcome()
-    public data class Failure(val error: Error) : VariableOutcome()
+    public data class Success(
+        val value: String,
+    ) : VariableOutcome()
+
+    public data class Failure(
+        val error: Error,
+    ) : VariableOutcome()
 }
 
 /**
@@ -792,7 +827,9 @@ public sealed class Error {
      *
      * Contains the name of the responsible environment variable.
      */
-    public data class EnvNoPkgConfig(val name: String) : Error()
+    public data class EnvNoPkgConfig(
+        val name: String,
+    ) : Error()
 
     /**
      * Detected cross compilation without a custom sysroot.
@@ -808,14 +845,20 @@ public sealed class Error {
      *
      * Contains the command and the cause.
      */
-    public data class Command(val command: String, val ioCause: IoError) : Error()
+    public data class Command(
+        val command: String,
+        val ioCause: IoError,
+    ) : Error()
 
     /**
      * `pkg-config` did not exit successfully after probing a library.
      *
      * Contains the command and output.
      */
-    public data class Failure(val command: String, val output: ProcessOutput) : Error()
+    public data class Failure(
+        val command: String,
+        val output: ProcessOutput,
+    ) : Error()
 
     /**
      * `pkg-config` did not exit successfully on the first attempt to probe a
@@ -843,117 +886,130 @@ public sealed class Error {
     public val message: String
         get() = renderDisplay()
 
-    private fun renderDisplay(): String = when (this) {
-        is EnvNoPkgConfig -> "Aborted because $name is set"
-        CrossCompilation -> (
-            "pkg-config has not been configured to support cross-compilation.\n" +
-                "\n" +
-                "Install a sysroot for the target platform and configure it via\n" +
-                "PKG_CONFIG_SYSROOT_DIR and PKG_CONFIG_PATH, or install a\n" +
-                "cross-compiling wrapper for pkg-config and set it via\n" +
-                "PKG_CONFIG environment variable."
+    private fun renderDisplay(): String =
+        when (this) {
+            is EnvNoPkgConfig -> "Aborted because $name is set"
+            CrossCompilation -> (
+                "pkg-config has not been configured to support cross-compilation.\n" +
+                    "\n" +
+                    "Install a sysroot for the target platform and configure it via\n" +
+                    "PKG_CONFIG_SYSROOT_DIR and PKG_CONFIG_PATH, or install a\n" +
+                    "cross-compiling wrapper for pkg-config and set it via\n" +
+                    "PKG_CONFIG environment variable."
             )
-        is Command -> when (ioCause.kind) {
-            IoErrorKind.NotFound -> {
-                val crateName = envVar("CARGO_PKG_NAME") ?: "sys"
-                val targetOs = currentTargetOs()
-                val instructions = when {
-                    targetOs == TargetOs.Macos ->
-                        "Try `brew install pkgconf` if you have Homebrew.\n"
-                    targetOs == TargetOs.Ios ->
-                        "" // iOS cross-compilation requires a custom setup, no easy fix
-                    targetOs.isUnix() ->
-                        "Try `apt install pkg-config`, or `yum install pkg-config`, or `brew install pkgconf`\n" +
-                            "or `pkg install pkg-config`, or `apk add pkgconfig` " +
-                            "depending on your distribution.\n"
-                    else ->
-                        "" // There's no easy fix for Windows users
-                }
-                "Could not run `$command`\n" +
-                    "The pkg-config command could not be found.\n" +
-                    "\n" +
-                    "Most likely, you need to install a pkg-config package for your OS.\n" +
-                    instructions +
-                    "\n" +
-                    "If you've already installed it, ensure the pkg-config command is one of the\n" +
-                    "directories in the PATH environment variable.\n" +
-                    "\n" +
-                    "If you did not expect this build to link to a pre-installed system library,\n" +
-                    "then check documentation of the $crateName crate for an option to\n" +
-                    "build the library from source, or disable features or dependencies\n" +
-                    "that require pkg-config."
-            }
-            else -> "Failed to run command `$command`, because: ${ioCause.message}"
-        }
-        is ProbeFailure -> {
-            val crateName = envVar("CARGO_PKG_NAME") ?: "<NO CRATE NAME>"
-            val sb = StringBuilder()
-            sb.append('\n')
-
-            // Give a short explanation of what the error is
-            val statusLine = when (val code = output.status.code) {
-                null -> "was terminated by signal"
-                else -> "exited with status code $code"
-            }
-            sb.append("pkg-config $statusLine").append('\n')
-
-            // Give the command run so users can reproduce the error
-            sb.append("> ").append(command).append("\n\n")
-
-            // Explain how it was caused
-            sb.append("The system library `").append(name).append("` required by crate `")
-                .append(crateName).append("` was not found.").append('\n')
-            sb.append("The file `").append(name)
-                .append(".pc` needs to be installed and the PKG_CONFIG_PATH environment variable must contain its parent directory.")
-                .append('\n')
-
-            // There will be no status code if terminated by signal
-            if (output.status.code != null) {
-                // Nix uses a wrapper script for pkg-config that sets the custom
-                // environment variable PKG_CONFIG_PATH_FOR_TARGET
-                val searchLocations = arrayOf("PKG_CONFIG_PATH_FOR_TARGET", "PKG_CONFIG_PATH")
-
-                // Find a search path to use
-                var searchData: Pair<String, String>? = null
-                for (location in searchLocations) {
-                    val searchPath = envVar(location)
-                    if (searchPath != null) {
-                        searchData = location to searchPath
-                        break
+            is Command ->
+                when (ioCause.kind) {
+                    IoErrorKind.NotFound -> {
+                        val crateName = envVar("CARGO_PKG_NAME") ?: "sys"
+                        val targetOs = currentTargetOs()
+                        val instructions =
+                            when {
+                                targetOs == TargetOs.Macos ->
+                                    "Try `brew install pkgconf` if you have Homebrew.\n"
+                                targetOs == TargetOs.Ios ->
+                                    "" // iOS cross-compilation requires a custom setup, no easy fix
+                                targetOs.isUnix() ->
+                                    "Try `apt install pkg-config`, or `yum install pkg-config`, or `brew install pkgconf`\n" +
+                                        "or `pkg install pkg-config`, or `apk add pkgconfig` " +
+                                        "depending on your distribution.\n"
+                                else ->
+                                    "" // There's no easy fix for Windows users
+                            }
+                        "Could not run `$command`\n" +
+                            "The pkg-config command could not be found.\n" +
+                            "\n" +
+                            "Most likely, you need to install a pkg-config package for your OS.\n" +
+                            instructions +
+                            "\n" +
+                            "If you've already installed it, ensure the pkg-config command is one of the\n" +
+                            "directories in the PATH environment variable.\n" +
+                            "\n" +
+                            "If you did not expect this build to link to a pre-installed system library,\n" +
+                            "then check documentation of the $crateName crate for an option to\n" +
+                            "build the library from source, or disable features or dependencies\n" +
+                            "that require pkg-config."
                     }
+                    else -> "Failed to run command `$command`, because: ${ioCause.message}"
+                }
+            is ProbeFailure -> {
+                val crateName = envVar("CARGO_PKG_NAME") ?: "<NO CRATE NAME>"
+                val sb = StringBuilder()
+                sb.append('\n')
+
+                // Give a short explanation of what the error is
+                val statusLine =
+                    when (val code = output.status.code) {
+                        null -> "was terminated by signal"
+                        else -> "exited with status code $code"
+                    }
+                sb.append("pkg-config $statusLine").append('\n')
+
+                // Give the command run so users can reproduce the error
+                sb.append("> ").append(command).append("\n\n")
+
+                // Explain how it was caused
+                sb
+                    .append("The system library `")
+                    .append(name)
+                    .append("` required by crate `")
+                    .append(crateName)
+                    .append("` was not found.")
+                    .append('\n')
+                sb
+                    .append("The file `")
+                    .append(name)
+                    .append(".pc` needs to be installed and the PKG_CONFIG_PATH environment variable must contain its parent directory.")
+                    .append('\n')
+
+                // There will be no status code if terminated by signal
+                if (output.status.code != null) {
+                    // Nix uses a wrapper script for pkg-config that sets the custom
+                    // environment variable PKG_CONFIG_PATH_FOR_TARGET
+                    val searchLocations = arrayOf("PKG_CONFIG_PATH_FOR_TARGET", "PKG_CONFIG_PATH")
+
+                    // Find a search path to use
+                    var searchData: Pair<String, String>? = null
+                    for (location in searchLocations) {
+                        val searchPath = envVar(location)
+                        if (searchPath != null) {
+                            searchData = location to searchPath
+                            break
+                        }
+                    }
+
+                    // Guess the most reasonable course of action
+                    val hint =
+                        if (searchData != null) {
+                            val (searchLocation, searchPath) = searchData
+                            sb
+                                .append(searchLocation)
+                                .append(" contains the following:\n")
+                                .append(
+                                    searchPath
+                                        .split(':')
+                                        .joinToString(separator = "\n") { path -> "    - $path" },
+                                ).append('\n')
+
+                            "you may need to install a package such as $name, $name-dev or $name-devel."
+                        } else {
+                            // Even on Nix, setting PKG_CONFIG_PATH seems to be a viable option
+                            sb.append("The PKG_CONFIG_PATH environment variable is not set.").append('\n')
+
+                            "if you have installed the library, try setting PKG_CONFIG_PATH to the directory containing `$name.pc`."
+                        }
+
+                    // Try and nudge the user in the right direction so they don't get stuck
+                    sb.append("\nHINT: ").append(hint).append('\n')
                 }
 
-                // Guess the most reasonable course of action
-                val hint = if (searchData != null) {
-                    val (searchLocation, searchPath) = searchData
-                    sb.append(searchLocation).append(" contains the following:\n")
-                        .append(
-                            searchPath
-                                .split(':')
-                                .joinToString(separator = "\n") { path -> "    - $path" },
-                        )
-                        .append('\n')
-
-                    "you may need to install a package such as $name, $name-dev or $name-devel."
-                } else {
-                    // Even on Nix, setting PKG_CONFIG_PATH seems to be a viable option
-                    sb.append("The PKG_CONFIG_PATH environment variable is not set.").append('\n')
-
-                    "if you have installed the library, try setting PKG_CONFIG_PATH to the directory containing `$name.pc`."
-                }
-
-                // Try and nudge the user in the right direction so they don't get stuck
-                sb.append("\nHINT: ").append(hint).append('\n')
+                sb.toString()
             }
-
-            sb.toString()
+            is Failure -> {
+                val head = "`$command` did not exit successfully: ${output.status}"
+                head + formatOutput(output)
+            }
+            Nonexhaustive -> kotlin.error("matched on reserved variant")
         }
-        is Failure -> {
-            val head = "`$command` did not exit successfully: ${output.status}"
-            head + formatOutput(output)
-        }
-        Nonexhaustive -> kotlin.error("matched on reserved variant")
-    }
 
     override fun toString(): String = message
 }
@@ -965,8 +1021,13 @@ public sealed class Error {
  * generic surface.
  */
 internal sealed class RunOutcome {
-    internal data class Ok(val stdout: ByteArray) : RunOutcome()
-    internal data class Err(val error: Error) : RunOutcome()
+    internal data class Ok(
+        val stdout: ByteArray,
+    ) : RunOutcome()
+
+    internal data class Err(
+        val error: Error,
+    ) : RunOutcome()
 }
 
 internal fun formatOutput(output: ProcessOutput): String {
@@ -1048,17 +1109,19 @@ internal fun isStaticAvailable(
     systemRoots: List<String>,
     dirs: List<String>,
 ): Boolean {
-    val libnames: List<String> = buildList {
-        add("lib$name.a")
-        if (currentTargetOs() == TargetOs.Windows) {
-            add("$name.lib")
+    val libnames: List<String> =
+        buildList {
+            add("lib$name.a")
+            if (currentTargetOs() == TargetOs.Windows) {
+                add("$name.lib")
+            }
         }
-    }
 
     return dirs.any { dir ->
-        val libraryExists = libnames.any { libname ->
-            pathExists(joinPath(dir, libname))
-        }
+        val libraryExists =
+            libnames.any { libname ->
+                pathExists(joinPath(dir, libname))
+            }
         libraryExists && !systemRoots.any { sys -> startsWithPath(dir, sys) }
     }
 }
@@ -1085,8 +1148,10 @@ internal fun splitFlags(output: ByteArray): List<String> {
                 word.add(b)
             }
             b == '\\'.code.toByte() -> escaped = true
-            b == '\t'.code.toByte() || b == '\n'.code.toByte() ||
-                b == '\r'.code.toByte() || b == ' '.code.toByte() -> {
+            b == '\t'.code.toByte() ||
+                b == '\n'.code.toByte() ||
+                b == '\r'.code.toByte() ||
+                b == ' '.code.toByte() -> {
                 if (word.isNotEmpty()) {
                     words.add(word.toByteArray().decodeToString())
                     word = mutableListOf()

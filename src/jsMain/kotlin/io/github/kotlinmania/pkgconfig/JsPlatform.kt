@@ -33,8 +33,9 @@ internal actual fun spawnProcess(
         envObj[key] = value
     }
     val jsArgs = args.toTypedArray()
-    val result = jsSpawnSync(exe, jsArgs, envObj)
-        ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "child_process unavailable in this JS host"))
+    val result =
+        jsSpawnSync(exe, jsArgs, envObj)
+            ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "child_process unavailable in this JS host"))
     val err: dynamic = result.error
     if (err != null && err != undefined()) {
         val errCode: dynamic = err.code
@@ -58,25 +59,30 @@ internal actual fun printStdoutLine(line: String) {
     println(line)
 }
 
-private fun jsGetEnv(name: String): dynamic = js(
-    "(typeof process !== 'undefined' && process && process.env) ? process.env[name] : undefined",
-)
+private fun jsGetEnv(name: String): dynamic =
+    js(
+        "(typeof process !== 'undefined' && process && process.env) ? process.env[name] : undefined",
+    )
 
-private fun jsOsPlatform(): String? = js(
-    "(typeof process !== 'undefined' && process && typeof process.platform === 'string') ? process.platform : null",
-).unsafeCast<String?>()
+private fun jsOsPlatform(): String? =
+    js(
+        "(typeof process !== 'undefined' && process && typeof process.platform === 'string') ? process.platform : null",
+    ).unsafeCast<String?>()
 
-private fun jsPathExists(path: String): Boolean? = js(
-    "(function(p){try{var fs=require('fs');return fs.existsSync(p);}catch(e){return null;}})(path)",
-).unsafeCast<Boolean?>()
+private fun jsPathExists(path: String): Boolean? =
+    js(
+        "(function(p){try{var fs=require('fs');return fs.existsSync(p);}catch(e){return null;}})(path)",
+    ).unsafeCast<Boolean?>()
 
-private fun jsPathIsFile(path: String): Boolean? = js(
-    "(function(p){try{var fs=require('fs');var s=fs.statSync(p);return s.isFile();}catch(e){return null;}})(path)",
-).unsafeCast<Boolean?>()
+private fun jsPathIsFile(path: String): Boolean? =
+    js(
+        "(function(p){try{var fs=require('fs');var s=fs.statSync(p);return s.isFile();}catch(e){return null;}})(path)",
+    ).unsafeCast<Boolean?>()
 
-private fun jsSpawnSync(exe: String, args: Array<String>, env: dynamic): dynamic = js(
-    "(function(e,a,en){try{var cp=require('child_process');return cp.spawnSync(e,a,{env:en});}catch(err){return null;}})(exe,args,env)",
-)
+private fun jsSpawnSync(exe: String, args: Array<String>, env: dynamic): dynamic =
+    js(
+        "(function(e,a,en){try{var cp=require('child_process');return cp.spawnSync(e,a,{env:en});}catch(err){return null;}})(exe,args,env)",
+    )
 
 private fun bufferToBytes(buffer: dynamic): ByteArray {
     if (buffer == null || buffer == undefined()) return byteArrayOf()

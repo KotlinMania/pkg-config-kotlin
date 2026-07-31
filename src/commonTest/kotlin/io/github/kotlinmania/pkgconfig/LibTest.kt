@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class LibTest {
-
     private fun testLibraryFilename(target: String, filename: String) {
         assertEquals(
             "foo",

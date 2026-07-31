@@ -15,14 +15,12 @@ internal actual fun spawnProcess(
     exe: String,
     args: List<String>,
     env: Map<String, String>,
-): ProcessOutput {
-    throw IoSpawnException(
-        IoError(
-            IoErrorKind.NotFound,
-            "process invocation is not available on wasm-wasi; pkg-config cannot be probed here",
-        ),
-    )
-}
+): ProcessOutput = throw IoSpawnException(
+    IoError(
+        IoErrorKind.NotFound,
+        "process invocation is not available on wasm-wasi; pkg-config cannot be probed here",
+    ),
+)
 
 internal actual fun printStdoutLine(line: String) {
     println(line)
