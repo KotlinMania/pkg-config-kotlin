@@ -1,6 +1,3 @@
-// port-lint: ignore — mingwX64 (Windows) actuals for the Platform.kt
-// expectations. Uses the MSVC-style `_popen` / `_pclose` / `_access` /
-// `_putenv` from the runtime.
 @file:OptIn(ExperimentalForeignApi::class)
 
 package io.github.kotlinmania.pkgconfig
