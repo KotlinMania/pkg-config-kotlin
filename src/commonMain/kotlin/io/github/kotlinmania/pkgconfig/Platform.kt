@@ -1,7 +1,3 @@
-// port-lint: ignore — KMP platform glue exposing the environment, process, and
-// filesystem operations that `lib.rs` reaches through `std::env`,
-// `std::process::Command`, and `std::path::Path`. Real implementations live in
-// the per-target source sets.
 package io.github.kotlinmania.pkgconfig
 
 /**

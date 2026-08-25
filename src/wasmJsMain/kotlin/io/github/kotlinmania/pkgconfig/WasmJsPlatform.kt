@@ -1,6 +1,3 @@
-// port-lint: ignore — wasm-js actuals. Reads env from `process.env` when
-// running under Node; pkg-config invocation is not available from Wasm/JS, so
-// `spawnProcess` always reports the process could not be found.
 @file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
 
 package io.github.kotlinmania.pkgconfig

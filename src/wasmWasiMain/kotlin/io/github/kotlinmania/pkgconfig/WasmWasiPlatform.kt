@@ -1,6 +1,3 @@
-// port-lint: ignore — wasm-wasi actuals. WASI does not expose a process API
-// and the WASI preview1 environment surface is limited; we return empty data
-// and report `NotFound` for spawn attempts.
 package io.github.kotlinmania.pkgconfig
 
 internal actual fun currentTargetOs(): TargetOs = TargetOs.Wasi

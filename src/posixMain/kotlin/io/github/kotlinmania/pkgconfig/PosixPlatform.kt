@@ -1,6 +1,3 @@
-// port-lint: ignore — posix actuals (linux, macos, ios, tvos, watchos,
-// android-native) for the Platform.kt expectations. Process invocation uses
-// popen with merged stdout/stderr.
 @file:OptIn(ExperimentalForeignApi::class)
 
 package io.github.kotlinmania.pkgconfig

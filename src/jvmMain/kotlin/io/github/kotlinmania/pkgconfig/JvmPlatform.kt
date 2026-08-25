@@ -1,4 +1,3 @@
-// port-lint: ignore — JVM actuals for the Platform.kt expectations.
 package io.github.kotlinmania.pkgconfig
 
 internal actual fun currentTargetOs(): TargetOs {

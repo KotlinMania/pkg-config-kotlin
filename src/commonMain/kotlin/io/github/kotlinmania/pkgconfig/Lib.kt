@@ -1,4 +1,4 @@
-// port-lint: source src/lib.rs
+// port-lint: source lib.rs
 package io.github.kotlinmania.pkgconfig
 
 // A build dependency for Cargo libraries to find system artifacts through the
@@ -45,9 +45,8 @@ package io.github.kotlinmania.pkgconfig
 // Each of these variables can also be supplied with certain prefixes and
 // suffixes, in the following prioritized order:
 //
-// 1. `<var>_<target>` - for example, `PKG_CONFIG_PATH_x86_64-unknown-linux-gnu`
-// 2. `<var>_<target_with_underscores>` - for example,
-//    `PKG_CONFIG_PATH_x86_64_unknown_linux_gnu`
+// 1. `<var>_<target>` - for example, `PKG_CONFIG_PATH_TARGET`
+// 2. `<var>_<target-with-underscores>`
 // 3. `<build-kind>_<var>` - for example, `HOST_PKG_CONFIG_PATH` or
 //    `TARGET_PKG_CONFIG_PATH`
 // 4. `<var>` - a plain `PKG_CONFIG_PATH`
@@ -80,11 +79,10 @@ package io.github.kotlinmania.pkgconfig
 //     }
 
 /**
- * Mirrors Rust's [`std::ops::Bound`] used to parametrise the bounded version
- * ranges accepted by [Config.rangeVersion]. The variant order follows
- * upstream. Non-generic because every consumer specialises to `String`, and
- * a generic sealed class triggers the Kotlin → Swift Export bridge to emit
- * `VersionBound.Included<Any?>` casts that fail under `allWarningsAsErrors`.
+ * Parametrises the bounded version ranges accepted by [Config.rangeVersion].
+ * The variant order follows upstream. Non-generic because every consumer specialises
+ * to `String`, and a generic sealed class triggers the Kotlin → Swift Export bridge
+ * to emit `VersionBound.Included<Any?>` casts that fail under `allWarningsAsErrors`.
  */
 public sealed class VersionBound {
     public data class Included(
@@ -99,9 +97,9 @@ public sealed class VersionBound {
 }
 
 /**
- * Wrapper holder to polyfill methods introduced in 1.57 (`get_envs`,
- * `get_args` etc). This is needed to reconstruct the pkg-config command for
- * output in a copy-paste friendly format via [toString].
+ * Wrapper holder to track environment variables and arguments. This is needed
+ * to reconstruct the pkg-config command for output in a copy-paste friendly
+ * format via [toString].
  */
 internal class WrappedCommand internal constructor(
     programArg: String,
@@ -761,8 +759,7 @@ public data class Define(
 
 /**
  * Ordered, deduplicating collection of `-D` defines parsed from pkg-config
- * output. Behaves like Rust's `HashMap<String, Option<String>>`: the same
- * name inserted twice keeps only the latest value.
+ * output. The same name inserted twice keeps only the latest value.
  */
 public class Defines {
     private val entries: MutableMap<String, String?> = mutableMapOf()
@@ -1089,7 +1086,7 @@ public fun getVariable(packageName: String, variable: String): VariableOutcome {
  * which cannot be used in a terminal — it will attempt to read a file named
  * 3.11 and provide it as stdin for pkg-config. Using this function, we
  * instead get the correct output:
- *   `pkg-config --libs --cflags foo 'foo < 3.11'`
+ *   `pkg-config --libs --cflags foo "foo < 3.11"`
  */
 internal fun quoteIfNeeded(arg: String): String =
     if (arg.contains(' ')) "'$arg'" else arg
@@ -1168,7 +1165,7 @@ internal fun splitFlags(output: ByteArray): List<String> {
     return words
 }
 
-// --- Path helpers that stand in for Rust's `PathBuf` / `Path` operations. ---
+// --- Path helpers for file path operations. ---
 
 private fun lastPathSeparator(path: String): Int {
     var idx = -1
@@ -1187,7 +1184,7 @@ private fun joinPath(base: String, child: String): String {
 }
 
 private fun startsWithPath(path: String, prefix: String): Boolean {
-    // Match the prefix on directory boundaries to mirror `Path::starts_with`.
+    // Match the prefix on directory boundaries.
     if (prefix.isEmpty()) return true
     if (!path.startsWith(prefix)) return false
     if (path.length == prefix.length) return true

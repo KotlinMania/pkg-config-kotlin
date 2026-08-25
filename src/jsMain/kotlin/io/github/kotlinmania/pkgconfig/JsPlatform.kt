@@ -1,6 +1,3 @@
-// port-lint: ignore — JS actuals. Reads env from `process.env` when running
-// under Node; falls back to `null` in the browser. Process invocation is
-// implemented for Node via `child_process.spawnSync`.
 package io.github.kotlinmania.pkgconfig
 
 internal actual fun currentTargetOs(): TargetOs {
