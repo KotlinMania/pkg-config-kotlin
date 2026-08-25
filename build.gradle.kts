@@ -496,6 +496,12 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
+        val posixMain = create("posixMain") {
+            dependsOn(commonMain.get())
+        }
+        findByName("appleMain")?.dependsOn(posixMain)
+        findByName("linuxMain")?.dependsOn(posixMain)
+        findByName("androidNativeMain")?.dependsOn(posixMain)
         if (benchmarkEnabled) {
             val commonBenchmark = maybeCreate("commonBenchmark")
             commonBenchmark.dependencies {
