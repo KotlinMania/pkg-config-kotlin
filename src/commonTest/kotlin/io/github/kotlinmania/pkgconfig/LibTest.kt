@@ -3,6 +3,7 @@ package io.github.kotlinmania.pkgconfig
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 class LibTest {
@@ -47,6 +48,38 @@ class LibTest {
     @Test
     fun extractLibReturnsNullWhenLinuxLacksPrefix() {
         assertNull(Library.extractLibFromFilename("x86_64-unknown-linux-gnu", "foo.so"))
+    }
+
+    @Test
+    fun systemLibraryMacTest() {
+        val systemRoots = listOf("/Library", "/System")
+        assertFalse(
+            isStaticAvailable("PluginManager", systemRoots, listOf("/Library/Frameworks")),
+        )
+        assertFalse(
+            isStaticAvailable(
+                "python2.7",
+                systemRoots,
+                listOf("/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/config"),
+            ),
+        )
+        assertFalse(
+            isStaticAvailable(
+                "ffi_convenience",
+                systemRoots,
+                listOf("/Library/Ruby/Gems/2.0.0/gems/ffi-1.9.10/ext/ffi_c/libffi-x86_64/.libs"),
+            ),
+        )
+    }
+
+    @Test
+    fun systemLibraryLinuxTest() {
+        assertFalse(
+            isStaticAvailable("util", listOf("/usr"), listOf("/usr/lib/x86_64-linux-gnu")),
+        )
+        assertFalse(
+            isStaticAvailable("dialog", listOf("/usr"), listOf("/usr/lib")),
+        )
     }
 
     @Test
