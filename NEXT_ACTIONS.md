@@ -4,12 +4,12 @@ Based on AST analysis, here are the concrete next steps.
 
 ## Summary
 
-- **Files Present:** 1/1 (100.0%)
-- **Function parity:** 38/44 matched (target 59) — 86.4%
-- **Class/type parity:** 4/4 matched (target 23) — 100.0%
-- **Combined symbol parity:** 42/48 matched (target 82) — 87.5%
-- **Average inline-code cosine:** 0.60 (function body across 1 matched files)
-- **Average documentation cosine:** 0.89 (doc text across 1 matched files)
+- **Files Present:** 0/0 (nan%)
+- **Function parity:** 0/0 matched — N/A
+- **Class/type parity:** 0/0 matched — N/A
+- **Combined symbol parity:** 0/0 matched — N/A
+- **Average inline-code cosine:** 0.00 (function body across 0 matched files)
+- **Average documentation cosine:** 0.00 (doc text across 0 matched files)
 - **Cheat-zeroed Files:** 0
 - **Critical Issues:** 0 files with <0.60 function similarity
 
@@ -26,18 +26,6 @@ No missing high-value files detected.
 ## Detailed Work Items
 
 Every matched file is listed below with function and type symbol parity.
-
-### 1. lib
-
-- **Target:** `pkgconfig.Lib`
-- **Similarity:** 0.60
-- **Dependents:** 0
-- **Priority Score:** 64804.0
-- **Functions:** 38/44 matched (target 59)
-- **Missing functions:** `fmt`, `run`, `default`, `system_library_mac_test`, `system_library_linux_test`, `test_library_filename`
-- **Types:** 4/4 matched (target 23)
-- **Missing types:** _none_
-- **Tests:** 4/7 matched
 
 ## Success Criteria
 
