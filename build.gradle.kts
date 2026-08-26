@@ -955,6 +955,7 @@ tasks.register("swiftExportSmokeTest") {
                 .get()
                 .asFile
         swiftBuildDirFile.deleteRecursively()
+        swiftBuildDirFile.mkdirs()
         val swiftBuildDir = swiftBuildDirFile.absolutePath
         execOperations
             .exec {
