@@ -15,8 +15,5 @@
     "todos": true,
     "lint": true
   },
-  "reexport_modules": [
-    "mod.rs",
-    "lib.rs"
-  ]
+  "reexport_modules": []
 }
