@@ -2,8 +2,6 @@
 
 package io.github.kotlinmania.pkgconfig
 
-import kotlin.experimental.ExperimentalNativeApi
-import kotlin.native.OsFamily
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import platform.posix.EOF
@@ -15,17 +13,20 @@ import platform.posix.pclose
 import platform.posix.popen
 import platform.posix.setenv
 import platform.posix.unsetenv
+import kotlin.experimental.ExperimentalNativeApi
+import kotlin.native.OsFamily
 
 @OptIn(ExperimentalNativeApi::class)
-internal actual fun currentTargetOs(): TargetOs = when (kotlin.native.Platform.osFamily) {
-    OsFamily.MACOSX -> TargetOs.Macos
-    OsFamily.IOS -> TargetOs.Ios
-    OsFamily.TVOS -> TargetOs.TvOs
-    OsFamily.WATCHOS -> TargetOs.WatchOs
-    OsFamily.LINUX -> TargetOs.Linux
-    OsFamily.ANDROID -> TargetOs.Android
-    else -> TargetOs.Other
-}
+internal actual fun currentTargetOs(): TargetOs =
+    when (kotlin.native.Platform.osFamily) {
+        OsFamily.MACOSX -> TargetOs.Macos
+        OsFamily.IOS -> TargetOs.Ios
+        OsFamily.TVOS -> TargetOs.TvOs
+        OsFamily.WATCHOS -> TargetOs.WatchOs
+        OsFamily.LINUX -> TargetOs.Linux
+        OsFamily.ANDROID -> TargetOs.Android
+        else -> TargetOs.Other
+    }
 
 internal actual fun envVar(name: String): String? = getenv(name)?.toKString()
 
@@ -51,16 +52,18 @@ internal actual fun spawnProcess(
         setenv(key, value, 1)
     }
     try {
-        val command = buildString {
-            append(shellEscape(exe))
-            for (arg in args) {
-                append(' ')
-                append(shellEscape(arg))
+        val command =
+            buildString {
+                append(shellEscape(exe))
+                for (arg in args) {
+                    append(' ')
+                    append(shellEscape(arg))
+                }
+                append(" 2>&1")
             }
-            append(" 2>&1")
-        }
-        val handle = popen(command, "r")
-            ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "popen failed for `$exe`"))
+        val handle =
+            popen(command, "r")
+                ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "popen failed for `$exe`"))
         val out = ArrayList<Byte>()
         // Read byte-by-byte via fgetc so the posixMain metadata stays free of
         // size_t-typed signatures (whose bit width differs between 32-bit
