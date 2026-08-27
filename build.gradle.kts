@@ -496,9 +496,10 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
-        val posixMain = create("posixMain") {
-            dependsOn(commonMain.get())
-        }
+        val posixMain =
+            create("posixMain") {
+                dependsOn(commonMain.get())
+            }
         findByName("appleMain")?.dependsOn(posixMain)
         findByName("linuxMain")?.dependsOn(posixMain)
         findByName("androidNativeMain")?.dependsOn(posixMain)
@@ -920,7 +921,11 @@ tasks.register("hostTests") {
 // Patch generated SPM Package.swift to include minimum macOS platform for Swift Concurrency
 tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
     doLast {
-        val spmDir = layout.buildDirectory.dir("SPMPackage").orNull?.asFile
+        val spmDir =
+            layout.buildDirectory
+                .dir("SPMPackage")
+                .orNull
+                ?.asFile
         if (spmDir != null && spmDir.exists()) {
             spmDir.walkTopDown().filter { it.name == "Package.swift" }.forEach { file ->
                 val text = file.readText()
