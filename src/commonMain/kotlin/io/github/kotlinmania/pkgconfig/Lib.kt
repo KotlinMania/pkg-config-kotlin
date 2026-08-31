@@ -1,4 +1,4 @@
-// port-lint: source lib.rs
+// port-lint: source pkg-config/src/lib.rs
 package io.github.kotlinmania.pkgconfig
 
 // A build dependency for Cargo libraries to find system artifacts through the
