@@ -2,7 +2,7 @@
   "type": "port",
   "name": "pkg-config-kotlin",
   "source": {
-    "path": "tmp",
+    "path": "tmp/pkg-config/src",
     "lang": "rust"
   },
   "target": {

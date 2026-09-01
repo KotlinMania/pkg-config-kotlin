@@ -22,6 +22,8 @@ tmp/
 # AST distance reports and binaries
 port_status_report.md
 high_priority_ports.md
+NEXT_ACTIONS.md
+port_lint_proposed_changes.md
 ast_distance_*.txt
 .cache/
 *.lock
@@ -33,6 +35,7 @@ kotlin-js-store/*
 tools/ast_distance/ast_distance
 tools/ast_distance/build/
 tools/ast_distance
+tools/ast_distance_bin
 
 # JVM heap dumps
 *.hprof
