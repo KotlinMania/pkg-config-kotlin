@@ -24,7 +24,7 @@ jobs:
           java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6.2.0
+        uses: gradle/actions/setup-gradle@v6.3.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v7.0.0
@@ -44,7 +44,7 @@ jobs:
           yarn --version
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v4.37.9
         with:
           languages: javascript-typescript
           build-mode: none
@@ -63,6 +63,6 @@ jobs:
           --no-configuration-cache
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v4.37.9
         with:
           category: "/language:javascript-typescript"
