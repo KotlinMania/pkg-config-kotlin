@@ -4,12 +4,16 @@ internal actual fun currentTargetOs(): TargetOs {
     val name = System.getProperty("os.name").orEmpty().lowercase()
     return when {
         name.contains("mac") || name.contains("darwin") -> TargetOs.Macos
+
         name.contains("win") -> TargetOs.Windows
+
         name.contains("linux") -> TargetOs.Linux
+
         name.contains("freebsd") ||
             name.contains("openbsd") ||
             name.contains("netbsd") ||
             name.contains("sunos") -> TargetOs.Linux
+
         else -> TargetOs.Other
     }
 }
@@ -53,7 +57,7 @@ internal actual fun spawnProcess(
         try {
             builder.start()
         } catch (e: java.io.IOException) {
-            val message = e.message ?: ""
+            val message = e.message.orEmpty()
             val kind =
                 if (e is java.io.FileNotFoundException || message.contains("No such file")) {
                     IoErrorKind.NotFound
