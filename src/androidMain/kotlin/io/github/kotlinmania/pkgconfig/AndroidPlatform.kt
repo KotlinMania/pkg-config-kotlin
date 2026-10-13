@@ -41,7 +41,7 @@ internal actual fun spawnProcess(
         try {
             builder.start()
         } catch (e: java.io.IOException) {
-            val message = e.message ?: ""
+            val message = e.message.orEmpty()
             val kind =
                 if (e is java.io.FileNotFoundException || message.contains("No such file")) {
                     IoErrorKind.NotFound

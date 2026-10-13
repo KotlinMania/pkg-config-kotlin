@@ -304,7 +304,10 @@ public class Config {
         val firstOutcome = runProbe(name, listOf("--libs", "--cflags"))
         val output =
             when (firstOutcome) {
-                is RunOutcome.Ok -> firstOutcome.stdout
+                is RunOutcome.Ok -> {
+                    firstOutcome.stdout
+                }
+
                 is RunOutcome.Err -> {
                     val mapped =
                         if (firstOutcome.error is Error.Failure) {
@@ -350,13 +353,17 @@ public class Config {
         // a wrapper script that sets up platform-specific prefixes.
         return when (val v = targetedEnvVar("PKG_CONFIG_ALLOW_CROSS")) {
             // don't use pkg-config if explicitly disabled
-            "0" -> false
+            "0" -> {
+                false
+            }
+
             null -> {
                 // if not disabled, and pkg-config is customized,
                 // then assume it's prepared for cross-compilation
                 targetedEnvVar("PKG_CONFIG") != null ||
                     targetedEnvVar("PKG_CONFIG_SYSROOT_DIR") != null
             }
+
             else -> {
                 // Silence the unused-variable lint while still consulting `v`.
                 v.isNotEmpty() || true
@@ -437,13 +444,25 @@ public class Config {
         }
         cmd.arg(name)
         when (val v = minVersion) {
-            is VersionBound.Included -> cmd.arg("$name >= ${v.value}")
-            is VersionBound.Excluded -> cmd.arg("$name > ${v.value}")
+            is VersionBound.Included -> {
+                cmd.arg("$name >= ${v.value}")
+            }
+
+            is VersionBound.Excluded -> {
+                cmd.arg("$name > ${v.value}")
+            }
+
             VersionBound.Unbounded -> { /* no version arg */ }
         }
         when (val v = maxVersion) {
-            is VersionBound.Included -> cmd.arg("$name <= ${v.value}")
-            is VersionBound.Excluded -> cmd.arg("$name < ${v.value}")
+            is VersionBound.Included -> {
+                cmd.arg("$name <= ${v.value}")
+            }
+
+            is VersionBound.Excluded -> {
+                cmd.arg("$name < ${v.value}")
+            }
+
             VersionBound.Unbounded -> { /* no version arg */ }
         }
         return cmd
@@ -555,6 +574,7 @@ public class Library internal constructor() {
                         testSuffixes(filename, arrayOf(".dll.a", ".dll", ".lib", ".a"))
                     }
                 }
+
                 target.contains("apple") -> {
                     if (filename.startsWith(prefix)) {
                         val rest = filename.substring(prefix.length)
@@ -563,6 +583,7 @@ public class Library internal constructor() {
                         null
                     }
                 }
+
                 else -> {
                     if (filename.startsWith(prefix)) {
                         val rest = filename.substring(prefix.length)
@@ -613,14 +634,17 @@ public class Library internal constructor() {
                     dirs.add(value)
                     linkPathsMut.add(value)
                 }
+
                 "-F" -> {
                     val meta = "rustc-link-search=framework=$value"
                     config.printMetadata(meta)
                     frameworkPathsMut.add(value)
                 }
+
                 "-I" -> {
                     includePathsMut.add(value)
                 }
+
                 "-l" -> {
                     // These are provided by the CRT with MSVC
                     if (isMsvc && (value == "m" || value == "c" || value == "pthread")) {
@@ -641,16 +665,19 @@ public class Library internal constructor() {
 
                     libsMut.add(value)
                 }
+
                 "-D" -> {
                     val iter = value.splitToSequence('=').iterator()
                     val key = iter.next()
                     val maybeValue: String? = if (iter.hasNext()) iter.next() else null
                     defines.put(key, maybeValue)
                 }
+
                 "-u" -> {
                     val meta = "rustc-link-arg=-Wl,-u,$value"
                     config.printMetadata(meta)
                 }
+
                 else -> { /* ignore */ }
             }
         }
@@ -678,12 +705,14 @@ public class Library internal constructor() {
                         frameworksMut.add(lib)
                     }
                 }
+
                 "-isystem", "-iquote", "-idirafter" -> {
                     if (iter.hasNext()) {
                         val inc = iter.next()
                         includePathsMut.add(inc)
                     }
                 }
+
                 "-undefined", "--undefined" -> {
                     if (iter.hasNext()) {
                         val symbol = iter.next()
@@ -691,6 +720,7 @@ public class Library internal constructor() {
                         config.printMetadata(meta)
                     }
                 }
+
                 else -> {
                     if (pathIsFile(part)) {
                         // Cargo doesn't have a means to directly specify a file path to link,
@@ -705,6 +735,7 @@ public class Library internal constructor() {
                                         "cargo:warning=File path $part found in pkg-config file for $name, but could not extract library base name to pass to linker command line",
                                     )
                                 }
+
                                 else -> {
                                     val linkSearch = "rustc-link-search=$dir"
                                     config.printMetadata(linkSearch)
@@ -885,32 +916,43 @@ public sealed class Error {
 
     private fun renderDisplay(): String =
         when (this) {
-            is EnvNoPkgConfig -> "Aborted because $name is set"
-            CrossCompilation -> (
+            is EnvNoPkgConfig -> {
+                "Aborted because $name is set"
+            }
+
+            CrossCompilation -> {
                 "pkg-config has not been configured to support cross-compilation.\n" +
                     "\n" +
                     "Install a sysroot for the target platform and configure it via\n" +
                     "PKG_CONFIG_SYSROOT_DIR and PKG_CONFIG_PATH, or install a\n" +
                     "cross-compiling wrapper for pkg-config and set it via\n" +
                     "PKG_CONFIG environment variable."
-            )
-            is Command ->
+            }
+
+            is Command -> {
                 when (ioCause.kind) {
                     IoErrorKind.NotFound -> {
                         val crateName = envVar("CARGO_PKG_NAME") ?: "sys"
                         val targetOs = currentTargetOs()
                         val instructions =
                             when {
-                                targetOs == TargetOs.Macos ->
+                                targetOs == TargetOs.Macos -> {
                                     "Try `brew install pkgconf` if you have Homebrew.\n"
-                                targetOs == TargetOs.Ios ->
+                                }
+
+                                targetOs == TargetOs.Ios -> {
                                     "" // iOS cross-compilation requires a custom setup, no easy fix
-                                targetOs.isUnix() ->
+                                }
+
+                                targetOs.isUnix() -> {
                                     "Try `apt install pkg-config`, or `yum install pkg-config`, or `brew install pkgconf`\n" +
                                         "or `pkg install pkg-config`, or `apk add pkgconfig` " +
                                         "depending on your distribution.\n"
-                                else ->
+                                }
+
+                                else -> {
                                     "" // There's no easy fix for Windows users
+                                }
                             }
                         "Could not run `$command`\n" +
                             "The pkg-config command could not be found.\n" +
@@ -926,8 +968,13 @@ public sealed class Error {
                             "build the library from source, or disable features or dependencies\n" +
                             "that require pkg-config."
                     }
-                    else -> "Failed to run command `$command`, because: ${ioCause.message}"
+
+                    else -> {
+                        "Failed to run command `$command`, because: ${ioCause.message}"
+                    }
                 }
+            }
+
             is ProbeFailure -> {
                 val crateName = envVar("CARGO_PKG_NAME") ?: "<NO CRATE NAME>"
                 val sb = StringBuilder()
@@ -1001,11 +1048,15 @@ public sealed class Error {
 
                 sb.toString()
             }
+
             is Failure -> {
                 val head = "`$command` did not exit successfully: ${output.status}"
                 head + formatOutput(output)
             }
-            Nonexhaustive -> kotlin.error("matched on reserved variant")
+
+            Nonexhaustive -> {
+                kotlin.error("matched on reserved variant")
+            }
         }
 
     override fun toString(): String = message
@@ -1134,7 +1185,7 @@ internal fun isStaticAvailable(
  * splitting as well.
  */
 internal fun splitFlags(output: ByteArray): List<String> {
-    var word: MutableList<Byte> = mutableListOf()
+    val word: MutableList<Byte> = mutableListOf()
     val words: MutableList<String> = mutableListOf()
     var escaped = false
 
@@ -1144,17 +1195,24 @@ internal fun splitFlags(output: ByteArray): List<String> {
                 escaped = false
                 word.add(b)
             }
-            b == '\\'.code.toByte() -> escaped = true
+
+            b == '\\'.code.toByte() -> {
+                escaped = true
+            }
+
             b == '\t'.code.toByte() ||
                 b == '\n'.code.toByte() ||
                 b == '\r'.code.toByte() ||
                 b == ' '.code.toByte() -> {
                 if (word.isNotEmpty()) {
                     words.add(word.toByteArray().decodeToString())
-                    word = mutableListOf()
+                    word.clear()
                 }
             }
-            else -> word.add(b)
+
+            else -> {
+                word.add(b)
+            }
         }
     }
 

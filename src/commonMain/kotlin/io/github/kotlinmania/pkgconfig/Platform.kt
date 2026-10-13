@@ -92,6 +92,7 @@ internal fun TargetOs.isUnix(): Boolean =
         TargetOs.Macos, TargetOs.Ios, TargetOs.TvOs, TargetOs.WatchOs,
         TargetOs.Linux, TargetOs.Android,
         -> true
+
         else -> false
     }
 
