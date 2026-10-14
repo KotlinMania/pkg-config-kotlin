@@ -5,8 +5,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
-class LibTest {
+class LibraryTest {
     private fun testLibraryFilename(target: String, filename: String) {
         assertEquals(
             "foo",
@@ -70,6 +71,22 @@ class LibTest {
                 listOf("/Library/Ruby/Gems/2.0.0/gems/ffi-1.9.10/ext/ffi_c/libffi-x86_64/.libs"),
             ),
         )
+
+        // Homebrew is in /usr/local, and it's not a part of the OS
+        if (pathExists("/usr/local/lib/libpng16.a")) {
+            assertTrue(
+                isStaticAvailable("png16", systemRoots, listOf("/usr/local/lib")),
+            )
+
+            val outcome =
+                Config
+                    .new()
+                    .rangeVersion(VersionBound.Included("1"), VersionBound.Excluded("99"))
+                    .probe("libpng16")
+            if (outcome is ProbeOutcome.Success) {
+                assertFalse(outcome.library.version.contains('\n'))
+            }
+        }
     }
 
     @Test
