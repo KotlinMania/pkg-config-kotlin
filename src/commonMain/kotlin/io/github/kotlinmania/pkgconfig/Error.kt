@@ -14,6 +14,12 @@ public sealed class ProbeOutcome {
     public data class Failure(
         val error: Error,
     ) : ProbeOutcome()
+
+    public fun unwrap(): Library =
+        when (this) {
+            is Success -> library
+            is Failure -> kotlin.error(error.message)
+        }
 }
 
 /**
@@ -29,6 +35,12 @@ public sealed class VariableOutcome {
     public data class Failure(
         val error: Error,
     ) : VariableOutcome()
+
+    public fun unwrap(): String =
+        when (this) {
+            is Success -> value
+            is Failure -> kotlin.error(error.message)
+        }
 }
 
 /**

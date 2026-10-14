@@ -14,7 +14,41 @@ import platform.posix.getenv
 
 internal actual fun currentTargetOs(): TargetOs = TargetOs.Windows
 
-internal actual fun envVar(name: String): String? = getenv(name)?.toKString()
+private val trackedMingwEnvKeys =
+    arrayOf(
+        "TARGET",
+        "HOST",
+        "PKG_CONFIG",
+        "PKG_CONFIG_PATH",
+        "PKG_CONFIG_LIBDIR",
+        "PKG_CONFIG_SYSROOT_DIR",
+        "PKG_CONFIG_ALLOW_CROSS",
+        "PKG_CONFIG_ALL_STATIC",
+        "PKG_CONFIG_ALL_DYNAMIC",
+        "FOO_NO_PKG_CONFIG",
+        "FOO_STATIC",
+        "FOO_DYNAMIC",
+        "PATH",
+        "CD",
+        "PWD",
+        "SYSROOT",
+        "CARGO_PKG_NAME",
+    )
+
+internal actual fun platformEnvVar(name: String): String? = getenv(name)?.toKString()
+
+internal actual fun platformEnvVars(): Map<String, String> =
+    buildMap {
+        for (key in trackedMingwEnvKeys) {
+            val v = getenv(key)?.toKString()
+            if (v != null) {
+                put(key, v)
+            }
+        }
+    }
+
+internal actual fun platformCurrentDir(): String =
+    getenv("CD")?.toKString() ?: getenv("PWD")?.toKString() ?: "."
 
 internal actual fun pathExists(path: String): Boolean = _access(path, 0) == 0
 
@@ -25,9 +59,23 @@ internal actual fun spawnProcess(
     args: List<String>,
     env: Map<String, String>,
 ): ProcessOutput {
+    val resolvedExe = resolveExecutablePath(exe)
+    val overrides = currentEnvOverrides()
     val previousEnv: MutableMap<String, String?> = mutableMapOf()
-    for ((key, _) in env) {
+    for ((key, _) in overrides) {
         previousEnv[key] = getenv(key)?.toKString()
+    }
+    for ((key, _) in env) {
+        if (!previousEnv.containsKey(key)) {
+            previousEnv[key] = getenv(key)?.toKString()
+        }
+    }
+    for ((key, value) in overrides) {
+        if (value == null) {
+            _putenv("$key=")
+        } else {
+            _putenv("$key=$value")
+        }
     }
     for ((key, value) in env) {
         _putenv("$key=$value")
@@ -35,7 +83,7 @@ internal actual fun spawnProcess(
     try {
         val command =
             buildString {
-                append(quoteWin(exe))
+                append(quoteWin(resolvedExe))
                 for (arg in args) {
                     append(' ')
                     append(quoteWin(arg))
