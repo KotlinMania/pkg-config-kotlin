@@ -910,9 +910,9 @@ val publishToCentralPortal =
             val automaticPublishing = publishingType.equals("AUTOMATIC", ignoreCase = true)
             val terminalStates =
                 if (automaticPublishing) {
-                    setOf("PUBLISHED")
+                    setOf("PUBLISHING", "PUBLISHED")
                 } else {
-                    setOf("VALIDATED", "PUBLISHED")
+                    setOf("VALIDATED", "PUBLISHING", "PUBLISHED")
                 }
             val statusUri = URI("https://central.sonatype.com/api/v1/publisher/status?id=$deploymentId")
             val statusAttempts =
