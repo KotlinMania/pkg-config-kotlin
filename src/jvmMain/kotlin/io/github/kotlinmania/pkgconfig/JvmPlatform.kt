@@ -18,11 +18,25 @@ internal actual fun currentTargetOs(): TargetOs {
     }
 }
 
-internal actual fun envVar(name: String): String? =
+internal actual fun platformEnvVar(name: String): String? =
     try {
         System.getenv(name)
     } catch (_: SecurityException) {
         null
+    }
+
+internal actual fun platformEnvVars(): Map<String, String> =
+    try {
+        System.getenv()
+    } catch (_: SecurityException) {
+        emptyMap()
+    }
+
+internal actual fun platformCurrentDir(): String =
+    try {
+        System.getProperty("user.dir").orEmpty()
+    } catch (_: SecurityException) {
+        ""
     }
 
 internal actual fun pathExists(path: String): Boolean =
@@ -44,14 +58,23 @@ internal actual fun spawnProcess(
     args: List<String>,
     env: Map<String, String>,
 ): ProcessOutput {
+    val resolvedExe = resolveExecutablePath(exe)
     val cmd =
         ArrayList<String>(args.size + 1).apply {
-            add(exe)
+            add(resolvedExe)
             addAll(args)
         }
     val builder = ProcessBuilder(cmd)
+    val builderEnv = builder.environment()
+    for ((key, value) in currentEnvOverrides()) {
+        if (value == null) {
+            builderEnv.remove(key)
+        } else {
+            builderEnv[key] = value
+        }
+    }
     for ((key, value) in env) {
-        builder.environment()[key] = value
+        builderEnv[key] = value
     }
     val process =
         try {

@@ -96,11 +96,99 @@ internal fun TargetOs.isUnix(): Boolean =
         else -> false
     }
 
+/**
+ * True when the active target runtime executes directly on a host OS that can
+ * spawn `pkg-config` child processes (as opposed to a Browser, WASI, or Apple
+ * Simulator sandbox without `/bin/sh` or `pkg-config`).
+ */
+internal fun TargetOs.canSpawnHostProcess(): Boolean =
+    when (this) {
+        TargetOs.Macos, TargetOs.Linux, TargetOs.Windows, TargetOs.Android -> true
+        TargetOs.Ios, TargetOs.TvOs, TargetOs.WatchOs, TargetOs.Wasi, TargetOs.Browser, TargetOs.Other -> false
+    }
+
 /** Operating system the current Kotlin binary is running on. */
 internal expect fun currentTargetOs(): TargetOs
 
+private val envOverrides: MutableMap<String, String?> = mutableMapOf()
+
 /** Equivalent of `std::env::var_os` / `std::env::var`. */
-internal expect fun envVar(name: String): String?
+internal fun envVar(name: String): String? =
+    if (envOverrides.containsKey(name)) {
+        envOverrides[name]
+    } else {
+        platformEnvVar(name)
+    }
+
+/** Equivalent of `std::env::set_var`. */
+internal fun setEnvVar(name: String, value: String) {
+    envOverrides[name] = value
+}
+
+/** Equivalent of `std::env::remove_var`. */
+internal fun removeEnvVar(name: String) {
+    envOverrides[name] = null
+}
+
+/** Equivalent of `std::env::vars`. */
+internal fun envVars(): Map<String, String> {
+    val merged = platformEnvVars().toMutableMap()
+    for ((key, value) in envOverrides) {
+        if (value == null) {
+            merged.remove(key)
+        } else {
+            merged[key] = value
+        }
+    }
+    return merged
+}
+
+internal fun currentEnvOverrides(): Map<String, String?> = envOverrides.toMap()
+
+/** Equivalent of `std::env::current_dir`. */
+internal fun currentDir(): String {
+    val raw = platformCurrentDir()
+    if (raw.isNotEmpty() && !pathExists(joinPath(raw, "tests"))) {
+        val candidate = joinPath(raw, "../../../..")
+        if (pathExists(joinPath(candidate, "tests"))) {
+            return candidate
+        }
+    }
+    return raw
+}
+
+internal fun resolveExecutablePath(exe: String): String {
+    if (exe.contains('/') || exe.contains('\\')) return exe
+    val pathSep = if (currentTargetOs() == TargetOs.Windows) ';' else ':'
+    val pathEnv = envVar("PATH").orEmpty()
+    val searchDirs =
+        buildList {
+            for (dir in pathEnv.split(pathSep)) {
+                if (dir.isNotEmpty()) add(dir)
+            }
+            if (currentTargetOs().isUnix()) {
+                if ("/opt/homebrew/bin" !in this) add("/opt/homebrew/bin")
+                if ("/usr/local/bin" !in this) add("/usr/local/bin")
+                if ("/usr/bin" !in this) add("/usr/bin")
+            }
+        }
+    for (dir in searchDirs) {
+        val candidate = joinPath(dir, exe)
+        if (pathIsFile(candidate)) {
+            return candidate
+        }
+    }
+    return exe
+}
+
+/** Platform-native lookup for `std::env::var_os` / `std::env::var`. */
+internal expect fun platformEnvVar(name: String): String?
+
+/** Platform-native snapshot for `std::env::vars`. */
+internal expect fun platformEnvVars(): Map<String, String>
+
+/** Platform-native working directory for `std::env::current_dir`. */
+internal expect fun platformCurrentDir(): String
 
 /** Equivalent of `Path::new(path).exists()`. */
 internal expect fun pathExists(path: String): Boolean

@@ -11,10 +11,24 @@ internal actual fun currentTargetOs(): TargetOs {
     }
 }
 
-internal actual fun envVar(name: String): String? {
+internal actual fun platformEnvVar(name: String): String? {
     val raw: dynamic = jsGetEnv(name)
     return if (raw == null || raw == undefined()) null else raw.unsafeCast<String>()
 }
+
+internal actual fun platformEnvVars(): Map<String, String> {
+    val keys = jsGetEnvKeys()
+    return buildMap {
+        for (key in keys) {
+            val v = platformEnvVar(key)
+            if (v != null) {
+                put(key, v)
+            }
+        }
+    }
+}
+
+internal actual fun platformCurrentDir(): String = jsCurrentDir() ?: ""
 
 internal actual fun pathExists(path: String): Boolean = jsPathExists(path) == true
 
@@ -25,13 +39,21 @@ internal actual fun spawnProcess(
     args: List<String>,
     env: Map<String, String>,
 ): ProcessOutput {
-    val envObj: dynamic = js("{}")
+    val resolvedExe = resolveExecutablePath(exe)
+    val envObj: dynamic = jsCloneProcessEnv()
+    for ((key, value) in currentEnvOverrides()) {
+        if (value == null) {
+            jsDeleteEnvKey(envObj, key)
+        } else {
+            envObj[key] = value
+        }
+    }
     for ((key, value) in env) {
         envObj[key] = value
     }
     val jsArgs = args.toTypedArray()
     val result =
-        jsSpawnSync(exe, jsArgs, envObj)
+        jsSpawnSync(resolvedExe, jsArgs, envObj)
             ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "child_process unavailable in this JS host"))
     val err: dynamic = result.error
     if (err != null && err != undefined()) {
@@ -61,6 +83,25 @@ private fun jsGetEnv(name: String): dynamic =
         "(typeof process !== 'undefined' && process && process.env) ? process.env[name] : undefined",
     )
 
+private fun jsGetEnvKeys(): Array<String> =
+    js(
+        "(typeof process !== 'undefined' && process && process.env) ? Object.keys(process.env) : []",
+    ).unsafeCast<Array<String>>()
+
+private fun jsCloneProcessEnv(): dynamic =
+    js(
+        "(typeof process !== 'undefined' && process && process.env) ? Object.assign({}, process.env) : {}",
+    )
+
+private fun jsDeleteEnvKey(envObj: dynamic, key: String) {
+    js("delete envObj[key]")
+}
+
+private fun jsCurrentDir(): String? =
+    js(
+        "(typeof process !== 'undefined' && process && typeof process.cwd === 'function') ? process.cwd() : null",
+    ).unsafeCast<String?>()
+
 private fun jsOsPlatform(): String? =
     js(
         "(typeof process !== 'undefined' && process && typeof process.platform === 'string') ? process.platform : null",
@@ -68,17 +109,17 @@ private fun jsOsPlatform(): String? =
 
 private fun jsPathExists(path: String): Boolean? =
     js(
-        "(function(p){try{var fs=require('fs');return fs.existsSync(p);}catch(e){return null;}})(path)",
+        "(function(p){try{var fs=(typeof process!=='undefined'&&process&&typeof process.getBuiltinModule==='function')?process.getBuiltinModule('fs'):(eval('typeof require===\"function\"?require:null')?eval('require')('fs'):null);return fs?fs.existsSync(p):null;}catch(e){return null;}})(path)",
     ).unsafeCast<Boolean?>()
 
 private fun jsPathIsFile(path: String): Boolean? =
     js(
-        "(function(p){try{var fs=require('fs');var s=fs.statSync(p);return s.isFile();}catch(e){return null;}})(path)",
+        "(function(p){try{var fs=(typeof process!=='undefined'&&process&&typeof process.getBuiltinModule==='function')?process.getBuiltinModule('fs'):(eval('typeof require===\"function\"?require:null')?eval('require')('fs'):null);return fs?fs.statSync(p).isFile():null;}catch(e){return null;}})(path)",
     ).unsafeCast<Boolean?>()
 
 private fun jsSpawnSync(exe: String, args: Array<String>, env: dynamic): dynamic =
     js(
-        "(function(e,a,en){try{var cp=require('child_process');return cp.spawnSync(e,a,{env:en});}catch(err){return null;}})(exe,args,env)",
+        "(function(e,a,en){try{var cp=(typeof process!=='undefined'&&process&&typeof process.getBuiltinModule==='function')?process.getBuiltinModule('child_process'):(eval('typeof require===\"function\"?require:null')?eval('require')('child_process'):null);return cp?cp.spawnSync(e,a,{env:en}):null;}catch(err){return null;}})(exe,args,env)",
     )
 
 private fun bufferToBytes(buffer: dynamic): ByteArray {
