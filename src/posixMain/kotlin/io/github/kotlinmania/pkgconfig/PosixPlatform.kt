@@ -76,11 +76,10 @@ internal actual fun platformCurrentDir(): String =
 
 internal actual fun pathExists(path: String): Boolean = access(path, F_OK) == 0
 
-// Mirrors `Path::is_file()`. `struct stat` has a different binary layout on
-// every Apple/Linux/Android-Native target, and `S_ISREG` is a macro that
-// platform.posix does not always expose, so we rely on `access(F_OK)` here.
-// `pkg-config` only emits regular file paths in `-Wl,` runs, so presence is
-// enough to drive the downstream linker-arg parsing.
+// `struct stat` has a different binary layout across Apple, Linux, and
+// Android Native targets, so we rely on `access(F_OK)` here. `pkg-config`
+// only emits regular file paths in `-Wl,` runs, so presence is enough to
+// drive the downstream linker-arg parsing.
 internal actual fun pathIsFile(path: String): Boolean = pathExists(path)
 
 internal actual fun spawnProcess(
@@ -123,9 +122,8 @@ internal actual fun spawnProcess(
             popen(command, "r")
                 ?: throw IoSpawnException(IoError(IoErrorKind.NotFound, "popen failed for `$exe`"))
         val out = ArrayList<Byte>()
-        // Read byte-by-byte via fgetc so the posixMain metadata stays free of
-        // size_t-typed signatures (whose bit width differs between 32-bit
-        // watchosArm32 and the 64-bit posix targets).
+        // Read byte-by-byte via fgetc so the posixMain metadata stays portable
+        // across all POSIX targets.
         while (true) {
             val c = fgetc(handle)
             if (c == EOF) break

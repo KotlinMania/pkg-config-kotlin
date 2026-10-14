@@ -1,14 +1,20 @@
 // port-lint: tests tests/test.rs
 package io.github.kotlinmania.pkgconfig
 
+import io.github.kotlinmania.lazystatic.LazyStaticRef
+import io.github.kotlinmania.lazystatic.initialize
+import io.github.kotlinmania.lazystatic.lazyStatic
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
+private val LOCK: LazyStaticRef<Unit> = lazyStatic {}
+
 class PkgConfigTest {
     private fun reset() {
+        initialize(LOCK)
         for ((k, _) in envVars()) {
             if (k.contains("DYNAMIC") ||
                 k.contains("STATIC") ||
