@@ -30,10 +30,6 @@ internal actual fun platformEnvVars(): Map<String, String> {
 
 internal actual fun platformCurrentDir(): String = jsCurrentDir() ?: ""
 
-internal actual fun pathExists(path: String): Boolean = jsPathExists(path) == true
-
-internal actual fun pathIsFile(path: String): Boolean = jsPathIsFile(path) == true
-
 internal actual fun spawnProcess(
     exe: String,
     args: List<String>,
@@ -106,16 +102,6 @@ private fun jsOsPlatform(): String? =
     js(
         "(typeof process !== 'undefined' && process && typeof process.platform === 'string') ? process.platform : null",
     ).unsafeCast<String?>()
-
-private fun jsPathExists(path: String): Boolean? =
-    js(
-        "(function(p){try{var fs=(typeof process!=='undefined'&&process&&typeof process.getBuiltinModule==='function')?process.getBuiltinModule('fs'):(eval('typeof require===\"function\"?require:null')?eval('require')('fs'):null);return fs?fs.existsSync(p):null;}catch(e){return null;}})(path)",
-    ).unsafeCast<Boolean?>()
-
-private fun jsPathIsFile(path: String): Boolean? =
-    js(
-        "(function(p){try{var fs=(typeof process!=='undefined'&&process&&typeof process.getBuiltinModule==='function')?process.getBuiltinModule('fs'):(eval('typeof require===\"function\"?require:null')?eval('require')('fs'):null);return fs?fs.statSync(p).isFile():null;}catch(e){return null;}})(path)",
-    ).unsafeCast<Boolean?>()
 
 private fun jsSpawnSync(exe: String, args: Array<String>, env: dynamic): dynamic =
     js(

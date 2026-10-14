@@ -1,5 +1,8 @@
 package io.github.kotlinmania.pkgconfig
 
+import io.github.kotlinmania.io.files.Path
+import io.github.kotlinmania.io.files.SystemFileSystem
+
 /**
  * Captured stdout and stderr bytes together with the exit status of a finished process.
  */
@@ -139,9 +142,9 @@ internal fun currentEnvOverrides(): Map<String, String?> = envOverrides.toMap()
 /** Returns the current working directory. */
 internal fun currentDir(): String {
     val raw = platformCurrentDir()
-    if (raw.isNotEmpty() && !pathExists(joinPath(raw, "tests"))) {
-        val candidate = joinPath(raw, "../../../..")
-        if (pathExists(joinPath(candidate, "tests"))) {
+    if (raw.isNotEmpty() && !pathExists(Path(raw, "tests").toString())) {
+        val candidate = Path(raw, "..", "..", "..", "..").toString()
+        if (pathExists(Path(candidate, "tests").toString())) {
             return candidate
         }
     }
@@ -155,29 +158,32 @@ internal fun resolveExecutablePath(exe: String): String {
     val pathEnv = envVar("PATH").orEmpty()
     val searchDirs =
         buildList {
+            if (isWin) {
+                for (winDir in listOf("C:\\msys64\\mingw64\\bin", "C:\\msys64\\ucrt64\\bin", "C:\\msys64\\usr\\bin")) {
+                    if (winDir !in this) add(winDir)
+                }
+            }
             for (dir in pathEnv.split(pathSep)) {
-                if (dir.isNotEmpty()) add(dir)
+                if (dir.isNotEmpty() && (!isWin || !dir.contains("Strawberry", ignoreCase = true))) {
+                    if (dir !in this) add(dir)
+                }
             }
             if (currentTargetOs().isUnix()) {
                 if ("/opt/homebrew/bin" !in this) add("/opt/homebrew/bin")
                 if ("/usr/local/bin" !in this) add("/usr/local/bin")
                 if ("/usr/bin" !in this) add("/usr/bin")
-            } else if (isWin) {
-                for (winDir in listOf("C:\\msys64\\mingw64\\bin", "C:\\msys64\\ucrt64\\bin", "C:\\msys64\\usr\\bin", "C:\\Strawberry\\c\\bin")) {
-                    if (winDir !in this) add(winDir)
-                }
             }
         }
     for (dir in searchDirs) {
-        val candidate = joinPath(dir, exe)
-        if (pathIsFile(candidate)) {
-            return candidate
-        }
         if (isWin && !exe.endsWith(".exe")) {
-            val winCandidate = joinPath(dir, "$exe.exe")
+            val winCandidate = Path(dir, "$exe.exe").toString()
             if (pathIsFile(winCandidate)) {
                 return winCandidate
             }
+        }
+        val candidate = Path(dir, exe).toString()
+        if (pathIsFile(candidate)) {
+            return candidate
         }
     }
     return exe
@@ -193,10 +199,20 @@ internal expect fun platformEnvVars(): Map<String, String>
 internal expect fun platformCurrentDir(): String
 
 /** Returns true if the given filesystem path exists. */
-internal expect fun pathExists(path: String): Boolean
+internal fun pathExists(path: String): Boolean =
+    if (currentTargetOs() == TargetOs.Browser) {
+        false
+    } else {
+        SystemFileSystem.exists(Path(path))
+    }
 
 /** Returns true if the given filesystem path exists and is a regular file. */
-internal expect fun pathIsFile(path: String): Boolean
+internal fun pathIsFile(path: String): Boolean =
+    if (currentTargetOs() == TargetOs.Browser) {
+        false
+    } else {
+        SystemFileSystem.metadataOrNull(Path(path))?.isRegularFile == true
+    }
 
 /**
  * Spawns an external process and returns its captured output, or throws

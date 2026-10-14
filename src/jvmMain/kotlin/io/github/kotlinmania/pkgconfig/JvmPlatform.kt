@@ -39,20 +39,6 @@ internal actual fun platformCurrentDir(): String =
         ""
     }
 
-internal actual fun pathExists(path: String): Boolean =
-    try {
-        java.io.File(path).exists()
-    } catch (_: SecurityException) {
-        false
-    }
-
-internal actual fun pathIsFile(path: String): Boolean =
-    try {
-        java.io.File(path).isFile
-    } catch (_: SecurityException) {
-        false
-    }
-
 internal actual fun spawnProcess(
     exe: String,
     args: List<String>,

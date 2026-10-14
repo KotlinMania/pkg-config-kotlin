@@ -40,10 +40,6 @@ internal actual fun platformEnvVars(): Map<String, String> =
 
 internal actual fun platformCurrentDir(): String = platformEnvVar("PWD") ?: "."
 
-internal actual fun pathExists(path: String): Boolean = false
-
-internal actual fun pathIsFile(path: String): Boolean = false
-
 internal actual fun spawnProcess(
     exe: String,
     args: List<String>,

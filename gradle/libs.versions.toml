@@ -9,6 +9,7 @@ detekt = "2.0.0-alpha.6"
 ktlint = "14.2.0"
 ktlintEngine = "1.8.0"
 kotlinxBenchmark = "0.5.0"
+kmIo = "0.1.5"
 lazyStatic = "0.1.1"
 
 [plugins]
@@ -27,6 +28,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
 collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "collectionsImmutable" }
 kotlinx-benchmark-runtime = { module = "org.jetbrains.kotlinx:kotlinx-benchmark-runtime", version.ref = "kotlinxBenchmark" }
+km-io = { module = "io.github.kotlinmania:km-io", version.ref = "kmIo" }
 lazy-static-kotlin = { module = "io.github.kotlinmania:lazy-static-kotlin", version.ref = "lazyStatic" }
 
 [bundles]
@@ -36,6 +38,7 @@ pkgconfig-commonMain = [
   "kotlinx-serialization-json",
   "kotlinx-datetime",
   "collections-immutable",
+  "km-io",
 ]
 pkgconfig-commonTest = [
   "lazy-static-kotlin",

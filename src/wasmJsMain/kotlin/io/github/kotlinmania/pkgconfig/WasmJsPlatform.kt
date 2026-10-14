@@ -34,10 +34,6 @@ internal actual fun platformEnvVars(): Map<String, String> {
 
 internal actual fun platformCurrentDir(): String = jsCurrentDir() ?: ""
 
-internal actual fun pathExists(path: String): Boolean = jsPathExists(path)
-
-internal actual fun pathIsFile(path: String): Boolean = jsPathIsFile(path)
-
 internal actual fun spawnProcess(
     exe: String,
     args: List<String>,
@@ -114,16 +110,6 @@ private fun jsCurrentDir(): String? =
 private fun jsOsPlatform(): String? =
     js(
         "(typeof process !== 'undefined' && process && typeof process.platform === 'string') ? process.platform : null",
-    )
-
-private fun jsPathExists(path: String): Boolean =
-    js(
-        "(function(p){try{var fs=(typeof process!=='undefined'&&process&&typeof process.getBuiltinModule==='function')?process.getBuiltinModule('fs'):(eval('typeof require===\"function\"?require:null')?eval('require')('fs'):null);return fs?!!fs.existsSync(p):false;}catch(e){return false;}})(path)",
-    )
-
-private fun jsPathIsFile(path: String): Boolean =
-    js(
-        "(function(p){try{var fs=(typeof process!=='undefined'&&process&&typeof process.getBuiltinModule==='function')?process.getBuiltinModule('fs'):(eval('typeof require===\"function\"?require:null')?eval('require')('fs'):null);return fs?!!fs.statSync(p).isFile():false;}catch(e){return false;}})(path)",
     )
 
 private fun jsSpawnSyncEncoded(

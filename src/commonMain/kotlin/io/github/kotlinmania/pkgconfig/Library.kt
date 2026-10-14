@@ -1,6 +1,8 @@
 // port-lint: source lib.rs
 package io.github.kotlinmania.pkgconfig
 
+import io.github.kotlinmania.io.files.Path
+
 /**
  * Result of a successful [Config.probe] call: the parsed link search paths,
  * libraries, include paths and other metadata yielded by `pkg-config`.
@@ -247,13 +249,13 @@ public class Library internal constructor() {
                 }
 
                 else -> {
+                    val path = Path(part)
                     if (pathIsFile(part)) {
                         // Cargo doesn't have a means to directly specify a file path to link,
                         // so split up the path into the parent directory and library name.
-                        val parentEnd = lastPathSeparator(part)
-                        if (parentEnd >= 0 && target != null) {
-                            val dir = part.substring(0, parentEnd)
-                            val fileName = part.substring(parentEnd + 1)
+                        val dir = path.parent
+                        val fileName = path.name
+                        if (dir != null && fileName.isNotEmpty() && target != null) {
                             when (val libBasename = extractLibFromFilename(target, fileName)) {
                                 null -> {
                                     printStdoutLine(
@@ -336,31 +338,4 @@ public class Defines {
 
     /** Number of defines currently held. */
     public val size: Int get() = entries.size
-}
-
-// --- Path helpers for file path operations. ---
-
-internal fun lastPathSeparator(path: String): Int {
-    var idx = -1
-    for (i in path.indices) {
-        val c = path[i]
-        if (c == '/' || c == '\\') idx = i
-    }
-    return idx
-}
-
-internal fun joinPath(base: String, child: String): String {
-    if (base.isEmpty()) return child
-    val last = base[base.length - 1]
-    val sep = if (last == '/' || last == '\\') "" else "/"
-    return base + sep + child
-}
-
-internal fun startsWithPath(path: String, prefix: String): Boolean {
-    // Match the prefix on directory boundaries.
-    if (prefix.isEmpty()) return true
-    if (!path.startsWith(prefix)) return false
-    if (path.length == prefix.length) return true
-    val next = path[prefix.length]
-    return next == '/' || next == '\\'
 }

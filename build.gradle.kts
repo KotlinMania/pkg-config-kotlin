@@ -20,7 +20,9 @@ import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootEnvSpec
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootExtension
 import java.io.ByteArrayInputStream
 import java.net.URI
 import java.net.http.HttpClient
@@ -666,6 +668,19 @@ rootProject.extensions.configure<YarnRootExtension>("kotlinYarn") {
     resolution("**/webpack", webpackVersion)
 }
 
+rootProject.extensions.configure<WasmYarnRootExtension>("kotlinWasmYarn") {
+    providers
+        .gradlePropertiesPrefixedBy("yarn.resolution.")
+        .getOrElse(emptyMap())
+        .forEach { (key, ver) ->
+            val pkg = key.removePrefix("yarn.resolution.")
+            resolution(pkg, ver)
+            resolution("**/$pkg", ver)
+        }
+    resolution("webpack", webpackVersion)
+    resolution("**/webpack", webpackVersion)
+}
+
 val patchedKarmaWebpackPackage =
     rootProject.layout.projectDirectory
         .dir("gradle/npm/karma-webpack")
@@ -675,6 +690,15 @@ val patchedKarmaWebpackPackage =
 // TODO: NodeJsRootExtension.versions.* is deprecated and will be removed when the spec-based
 //       NodeJsEnvSpec API gains equivalent properties. Track KGP release notes before removing.
 rootProject.extensions.configure<NodeJsRootExtension>("kotlinNodeJs") {
+    versions.webpack.version = webpackVersion
+    versions.webpackCli.version = providers.gradleProperty("node.webpackCli.version").getOrElse("7.0.2")
+    versions.karma.version = providers.gradleProperty("node.karma.version").getOrElse("npm:karma-maintained@6.4.7")
+    versions.karmaWebpack.version = "file:$patchedKarmaWebpackPackage"
+    versions.mocha.version = providers.gradleProperty("node.mocha.version").getOrElse("12.0.0-beta-10")
+    versions.kotlinWebHelpers.version = providers.gradleProperty("node.kotlinWebHelpers.version").getOrElse("3.1.0")
+}
+
+rootProject.extensions.configure<WasmNodeJsRootExtension>("kotlinWasmNodeJs") {
     versions.webpack.version = webpackVersion
     versions.webpackCli.version = providers.gradleProperty("node.webpackCli.version").getOrElse("7.0.2")
     versions.karma.version = providers.gradleProperty("node.karma.version").getOrElse("npm:karma-maintained@6.4.7")
