@@ -15,9 +15,5 @@
     "todos": true,
     "lint": true
   },
-  "reexport_modules": [
-    "lib",
-    "lib.rs",
-    "pkg-config/src/lib.rs"
-  ]
+  "reexport_modules": []
 }
