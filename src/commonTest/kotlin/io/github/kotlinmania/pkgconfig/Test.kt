@@ -1,6 +1,7 @@
 // port-lint: tests tests/test.rs
 package io.github.kotlinmania.pkgconfig
 
+import io.github.kotlinmania.io.files.Path
 import io.github.kotlinmania.lazystatic.LazyStaticRef
 import io.github.kotlinmania.lazystatic.initialize
 import io.github.kotlinmania.lazystatic.lazyStatic
@@ -27,7 +28,7 @@ class PkgConfigTest {
         }
         removeEnvVar("TARGET")
         removeEnvVar("HOST")
-        setEnvVar("PKG_CONFIG_PATH", joinPath(currentDir(), "tests"))
+        setEnvVar("PKG_CONFIG_PATH", Path(currentDir(), "tests").toString())
     }
 
     private fun find(name: String): ProbeOutcome =

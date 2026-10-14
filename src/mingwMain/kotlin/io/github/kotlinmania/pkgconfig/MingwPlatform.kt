@@ -8,7 +8,6 @@ import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toKString
 import platform.posix.EOF
-import platform.posix._access
 import platform.posix._getcwd
 import platform.posix._pclose
 import platform.posix._popen
@@ -60,10 +59,6 @@ internal actual fun platformCurrentDir(): String =
             val buf = allocArray<ByteVar>(CWD_BUFFER_SIZE)
             _getcwd(buf, CWD_BUFFER_SIZE)?.toKString() ?: "."
         }
-
-internal actual fun pathExists(path: String): Boolean = _access(path, 0) == 0
-
-internal actual fun pathIsFile(path: String): Boolean = pathExists(path)
 
 internal actual fun spawnProcess(
     exe: String,

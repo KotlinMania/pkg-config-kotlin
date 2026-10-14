@@ -1,6 +1,8 @@
 // port-lint: source lib.rs
 package io.github.kotlinmania.pkgconfig
 
+import io.github.kotlinmania.io.files.Path
+
 /**
  * Builder configuration for invoking `pkg-config`.
  */
@@ -422,6 +424,9 @@ internal fun isStaticAvailable(
     systemRoots: List<String>,
     dirs: List<String>,
 ): Boolean {
+    if (currentTargetOs() == TargetOs.Browser) {
+        return false
+    }
     val libnames: List<String> =
         buildList {
             add("lib$name.a")
@@ -431,11 +436,17 @@ internal fun isStaticAvailable(
         }
 
     return dirs.any { dir ->
+        val dirPath = Path(dir)
         val libraryExists =
             libnames.any { libname ->
-                pathExists(joinPath(dir, libname))
+                pathExists(Path(dirPath, libname).toString())
             }
-        libraryExists && !systemRoots.any { sys -> startsWithPath(dir, sys) }
+        val underSystemRoot =
+            systemRoots.any { sys ->
+                val sysPath = Path(sys)
+                generateSequence(dirPath) { it.parent }.any { it == sysPath }
+            }
+        libraryExists && !underSystemRoot
     }
 }
 

@@ -91,8 +91,7 @@ package io.github.kotlinmania.pkgconfig
 // - `WrappedCommand`, `quoteIfNeeded` -> `WrappedCommand.kt`
 // - `Config`, `RunOutcome`, `findLibrary`, `probeLibrary`, `targetSupported`,
 //   `getVariable`, `envify`, `isStaticAvailable`, `splitFlags` -> `Config.kt`
-// - `Library`, `Define`, `Defines`, `lastPathSeparator`, `joinPath`,
-//   `startsWithPath` -> `Library.kt`
+// - `Library`, `Define`, `Defines` -> `Library.kt`
 // - `ProbeOutcome`, `VariableOutcome`, `Error`, `formatOutput` -> `Error.kt`
 //
 // Callers migrated:

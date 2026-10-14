@@ -9,8 +9,6 @@ import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toKString
 import platform.posix.EOF
-import platform.posix.F_OK
-import platform.posix.access
 import platform.posix.fgetc
 import platform.posix.getcwd
 import platform.posix.getenv
@@ -73,14 +71,6 @@ internal actual fun platformCurrentDir(): String =
             val buf = allocArray<ByteVar>(CWD_BUFFER_SIZE)
             getcwd(buf, CWD_BUFFER_SIZE.convert())?.toKString() ?: "."
         }
-
-internal actual fun pathExists(path: String): Boolean = access(path, F_OK) == 0
-
-// `struct stat` has a different binary layout across Apple, Linux, and
-// Android Native targets, so we rely on `access(F_OK)` here. `pkg-config`
-// only emits regular file paths in `-Wl,` runs, so presence is enough to
-// drive the downstream linker-arg parsing.
-internal actual fun pathIsFile(path: String): Boolean = pathExists(path)
 
 internal actual fun spawnProcess(
     exe: String,
