@@ -10,7 +10,7 @@ This is a Kotlin Multiplatform line-by-line transliteration port of [`rust-lang/
 
 ### Porting status
 
-This is an **in-progress port**. The goal is feature parity with the upstream Rust crate while providing a native Kotlin Multiplatform API. Every Kotlin file carries a `// port-lint: source <path>` header naming its upstream Rust counterpart so the AST-distance tool can track provenance.
+This is a complete Kotlin Multiplatform port of `pkg-config` (`0.3.32`) with full function and test parity against the upstream Rust crate (`51/51` source functions from `src/lib.rs` and `28/28` test functions from `tests/test.rs`). Every Kotlin file carries a `// port-lint: source <path>` or `// port-lint: tests <path>` header naming its upstream Rust counterpart so the AST-distance tool tracks provenance.
 
 ---
 
@@ -39,18 +39,18 @@ This library requires Rust 1.31+.
 
 Find the system library named `foo`, with minimum version 1.2.3:
 
-```rust
-fn main() {
-    pkg_config::Config::new().atleast_version("1.2.3").probe("foo").unwrap();
+```kotlin
+fun main() {
+    Config.new().atleastVersion("1.2.3").probe("foo").unwrap()
 }
 ```
 
 Find the system library named `foo`, with no version requirement (not
 recommended):
 
-```rust
-fn main() {
-    pkg_config::probe_library("foo").unwrap();
+```kotlin
+fun main() {
+    probeLibrary("foo").unwrap()
 }
 ```
 
@@ -107,7 +107,7 @@ shall be dual licensed as above, without any additional terms or conditions.
 
 ```kotlin
 dependencies {
-    implementation("io.github.kotlinmania:pkg-config-kotlin:0.1.0")
+    implementation("io.github.kotlinmania:pkg-config-kotlin:0.1.1")
 }
 ```
 

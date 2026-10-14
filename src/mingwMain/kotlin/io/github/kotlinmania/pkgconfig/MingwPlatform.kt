@@ -2,15 +2,21 @@
 
 package io.github.kotlinmania.pkgconfig
 
+import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.allocArray
+import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toKString
 import platform.posix.EOF
 import platform.posix._access
+import platform.posix._getcwd
 import platform.posix._pclose
 import platform.posix._popen
 import platform.posix._putenv
 import platform.posix.fgetc
 import platform.posix.getenv
+
+private const val CWD_BUFFER_SIZE = 4096
 
 internal actual fun currentTargetOs(): TargetOs = TargetOs.Windows
 
@@ -48,7 +54,12 @@ internal actual fun platformEnvVars(): Map<String, String> =
     }
 
 internal actual fun platformCurrentDir(): String =
-    getenv("CD")?.toKString() ?: getenv("PWD")?.toKString() ?: "."
+    getenv("CD")?.toKString()
+        ?: getenv("PWD")?.toKString()
+        ?: memScoped {
+            val buf = allocArray<ByteVar>(CWD_BUFFER_SIZE)
+            _getcwd(buf, CWD_BUFFER_SIZE)?.toKString() ?: "."
+        }
 
 internal actual fun pathExists(path: String): Boolean = _access(path, 0) == 0
 
