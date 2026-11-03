@@ -63,7 +63,7 @@ on x86 and x86-64.
 ## Bionic — Android's libc
 
 > Source: https://android.googlesource.com/platform/bionic
-> Clone (sparse, libc-only): `/Volumes/stuff/tools/bionic/libc/`
+> Clone (sparse, libc-only): `git clone --filter=blob:none --sparse https://android.googlesource.com/platform/bionic && git -C bionic sparse-checkout set libc`
 
 Bionic is not glibc and not musl. It is a small, Android-specific C library
 plus math library plus dynamic linker. When porting a libc surface, the
@@ -226,8 +226,8 @@ Bucket 3 gaps above.
 
 Process when you need to confirm whether a symbol is present:
 
-1. `grep -n '<symbol>' /Volumes/stuff/tools/bionic/libc/include/**/*.h`
-   (or use `git -C /Volumes/stuff/tools/bionic grep`).
+1. `grep -n '<symbol>' bionic/libc/include/**/*.h` in your sparse clone
+   (or use `git -C bionic grep`).
 2. Read the declaration. Note any `__INTRODUCED_IN(N)`.
 3. If `__INTRODUCED_IN(N)` puts it above the K/N min-API ceiling, the symbol
    needs the **dlsym pattern** (Bucket 2). It is not "missing"; it is
@@ -244,7 +244,7 @@ The `androidMain` source set's actuals are different in shape:
 - The actual is `external fun jniSymbolName(...)` declared on a Kotlin class
   marked `@JvmStatic`, with `System.loadLibrary("libc_kotlin_pthread")` (or
   the right shared library name).
-- The shared library is a C/C++ file under `src/androidMain/jni/` that calls
+- The shared library is a C/C++ file under `src/android/jvm/androidMain/jni/` that calls
   into bionic, with a `JNI_OnLoad` and a JNIEXPORT-tagged C entry point per
   exported Kotlin symbol.
 - The Android Gradle plugin's `externalNativeBuild { ndkBuild { ... } }` or
@@ -326,7 +326,6 @@ The full pattern (not just the task name):
 ### Workflow integration
 Every workflow command that touches Android must invoke `setupAndroidSdk` first:
 - `android.yml`: before `compileAndroidMain`, `assembleUnitTest`, `assembleAndroidTest`.
-- `codeql.yml`: before `compileAndroidMain`, `compileKotlinJs`, `compileKotlinWasmJs`.
 - `publish.yml`: before the dry-run `compileAndroidMain androidSourcesJar` and before `publishAndReleaseToMavenCentral`.
 - `windows.yml`: even for `mingwX64Test`, run `setupAndroidSdk` first — it's the Windows-runner proof that `setupAndroidSdk` is callable through Gradle alone. No WSL, no bash, no batch, no PowerShell duplicate installer.
 
@@ -344,11 +343,6 @@ rg -n "setupAndroidSdk|compileAndroidMain|assembleUnitTest|androidSourcesJar|ass
 git diff --check
 ```
 
-### CodeQL `java-kotlin` extraction
-KMP repos with an `android` target use `compileAndroidMain` as the CodeQL extraction command (the Android target emits real `.class` files the LD_PRELOAD tracer can hook). `compileKotlinMetadata` extracts zero TRAP. The full pattern + the required `--rerun-tasks --no-build-cache -Pkotlin.compiler.execution.strategy=out-of-process --no-configuration-cache --no-daemon` flags must be preserved when porting workflow YAML.
-
-`codeqlAndroidAar` extraction must use the dedicated configuration pattern from `syn-kotlin`, not mix AARs into `codeqlSourceClasspath`. If no real published Android AAR dependency exists yet, do not add fake coordinates — note in the PR/run report that no published AAR dependency exists.
-
 ---
 
 ## Sources
@@ -358,4 +352,4 @@ KMP repos with an `android` target use `compileAndroidMain` as the CodeQL extrac
 - Bionic pthread.h: https://android.googlesource.com/platform/bionic/+/HEAD/libc/include/pthread.h
 - Bionic libc.map.txt (per-API symbol versioning): https://android.googlesource.com/platform/bionic/+/HEAD/libc/libc.map.txt
 - Android API level constants: https://android.googlesource.com/platform/bionic/+/HEAD/libc/include/android/api_level.h
-- Local sparse clone: `/Volumes/stuff/tools/bionic/libc/`
+- Local sparse clone: see "Clone" at the top of this section.

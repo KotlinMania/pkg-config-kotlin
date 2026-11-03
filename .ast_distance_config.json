@@ -6,7 +6,7 @@
     "lang": "rust"
   },
   "target": {
-    "path": "src/commonMain/kotlin/io/github/kotlinmania/pkgconfig",
+    "path": "src/common/commonMain/kotlin/io/github/kotlinmania/pkgconfig",
     "lang": "kotlin"
   },
   "checks": {
