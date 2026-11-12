@@ -9,7 +9,7 @@ detekt = "2.0.0-alpha.6"
 ktlint = "14.2.0"
 ktlintEngine = "1.8.0"
 kotlinxBenchmark = "0.5.0"
-kmIo = "0.1.5"
+kmIo = "0.4.0"
 lazyStatic = "0.1.1"
 
 [plugins]
