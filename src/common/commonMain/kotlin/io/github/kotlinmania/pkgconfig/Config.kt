@@ -1,4 +1,3 @@
-// port-lint: source lib.rs
 package io.github.kotlinmania.pkgconfig
 
 import io.github.kotlinmania.io.files.Path
